@@ -19,7 +19,6 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -Dandroid-libbacktrace=disabled
 -Dgallium-drivers=
 -Degl=disabled
--Dbuildtype=release
 -Dstrip=true
 -Dvulkan-drivers=freedreno
 -Dfreedreno-kmds=kgsl
