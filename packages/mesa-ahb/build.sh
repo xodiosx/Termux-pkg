@@ -22,8 +22,7 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -Degl=disabled
 -Dvalgrind=disabled
 -Dvulkan-drivers=freedreno
--Dfreedreno-kmds=msm,kgsl
--Dxmlconfig=disabled 
+-Dfreedreno-kmds=msm,kgsl 
 "
 
 termux_step_post_get_source() {
