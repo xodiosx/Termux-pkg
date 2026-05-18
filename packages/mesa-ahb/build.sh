@@ -7,7 +7,7 @@ TERMUX_PKG_VERSION="26.0.1"
 TERMUX_PKG_SRCURL="https://archive.mesa3d.org/mesa-${TERMUX_PKG_VERSION}.tar.xz"
 TERMUX_PKG_SHA256=bb5104f9f9a46c9b5175c24e601e0ef1ab44ce2d0fdbe81548b59adc8b385dcc
 TERMUX_PKG_AUTO_UPDATE=true
-TERMUX_PKG_DEPENDS="libc++, zlib, zstd"
+TERMUX_PKG_DEPENDS="libc++, zlib, zstd, libxcb"
 TERMUX_PKG_API_LEVEL=26
 TERMUX_PKG_EXCLUDED_ARCHES="i686, x86_64"
 # closely based on: https://docs.mesa3d.org/android.html#building-using-the-android-ndk
