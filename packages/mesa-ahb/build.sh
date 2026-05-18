@@ -13,14 +13,17 @@ TERMUX_PKG_EXCLUDED_ARCHES="i686, x86_64"
 # closely based on: https://docs.mesa3d.org/android.html#building-using-the-android-ndk
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 --cmake-prefix-path $TERMUX_PREFIX
--Dplatforms=android
+-Dplatforms=android,x11
 -Dplatform-sdk-version=$TERMUX_PKG_API_LEVEL
 -Dandroid-stub=true
 -Dandroid-libbacktrace=disabled
 -Dgallium-drivers=
+-Dllvm=disabled
 -Degl=disabled
+-Dvalgrind=disabled
 -Dvulkan-drivers=freedreno
--Dfreedreno-kmds=kgsl
+-Dfreedreno-kmds=msm,kgsl
+-Dxmlconfig=disabled 
 "
 
 termux_step_post_get_source() {
