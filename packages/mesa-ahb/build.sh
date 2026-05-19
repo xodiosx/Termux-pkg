@@ -7,8 +7,7 @@ TERMUX_PKG_VERSION="26.0.1"
 TERMUX_PKG_SRCURL="https://archive.mesa3d.org/mesa-${TERMUX_PKG_VERSION}.tar.xz"
 TERMUX_PKG_SHA256=bb5104f9f9a46c9b5175c24e601e0ef1ab44ce2d0fdbe81548b59adc8b385dcc
 TERMUX_PKG_AUTO_UPDATE=true
-TERMUX_PKG_DEPENDS="libc++, zlib, zstd, libxcb, libandroid-shmem, libdrm, libglvnd, libllvm (<< $TERMUX_LLVM_NEXT_MAJOR_VERSION), libwayland, libx11, libxext, libxfixes, libxxf86vm, libxshmfence, ncurses, vulkan-loader"
-TERMUX_PKG_BUILD_DEPENDS="libclc, libwayland-protocols, libxrandr, llvm, llvm-tools, mlir, spirv-tools, xorgproto"
+TERMUX_PKG_DEPENDS="libc++, zlib, zstd"
 TERMUX_PKG_API_LEVEL=26
 TERMUX_PKG_EXCLUDED_ARCHES="i686, x86_64"
 # closely based on: https://docs.mesa3d.org/android.html#building-using-the-android-ndk
@@ -19,17 +18,8 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -Dandroid-stub=true
 -Dandroid-libbacktrace=disabled
 -Dgallium-drivers=
--Dllvm=disabled
 -Degl=disabled
--Dglx=disabled
--Dgbm=disabled
--Dopengl=false
--Dgles1=disabled
--Dgles2=disabled
--Dvalgrind=disabled
 -Dvulkan-drivers=freedreno
--Degl=disabled
--Dfreedreno-kmds=msm,kgsl
 -Dfreedreno-kmds=kgsl
 "
 
