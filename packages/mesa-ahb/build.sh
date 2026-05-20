@@ -26,4 +26,5 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 termux_step_post_get_source() {
 	# Do not use meson wrap projects
 	ls subprojects
+	git clone --depth 1 https://gitlab.freedesktop.org/mesa/android-stub.git subprojects/android-stub
 }
