@@ -27,5 +27,5 @@ termux_step_post_get_source() {
 	# Do not use meson wrap projects
 	ls subprojects
 	git clone --depth 1 https://gitlab.freedesktop.org/mesa/mesa.git
-	cp -a mesa/subprojects .
+	cp -a mesa/. .
 }
