@@ -16,12 +16,11 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -Dplatforms=android
 -Dplatform-sdk-version=$TERMUX_PKG_API_LEVEL
 -Dandroid-stub=true
--Dandroid-trace=disabled
 -Dandroid-libbacktrace=disabled
 -Dgallium-drivers=
 -Degl=disabled
 -Dvulkan-drivers=freedreno
--Dfreedreno-kmds=kgsl
+-Dfreedreno-kmds=msm,kgsl
 "
 
 termux_step_post_get_source() {
