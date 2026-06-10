@@ -15,8 +15,17 @@ termux_step_pre_configure() {
 	CPPFLAGS+=" -Wno-error=gnu-offsetof-extensions"
 	LDFLAGS+=" -static"
 
-	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i '1s/^/#include <sys\/syscall.h>\n#include <unistd.h>\n/' {} +
-	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i 's/memfd_create(/syscall(SYS_memfd_create, /g' {} +
+	local f
+	for f in $(find "$TERMUX_PKG_SRCDIR" -type f -name "*.c"); do
+		if grep -q "memfd_create" "$f"; then
+			sed -i 's/\bmemfd_create\s*(/termux_memfd_create(/g' "$f"
+			sed -i '1s/^/#include <sys\/syscall.h>\n#include <unistd.h>\nstatic inline int termux_memfd_create(const char *n, unsigned int f) { return syscall(SYS_memfd_create, n, f); }\n/' "$f"
+		fi
+		if grep -q "timespec_get" "$f"; then
+			sed -i 's/\btimespec_get\s*(/termux_timespec_get(/g' "$f"
+			sed -i '1s/^/#include <time.h>\n#ifndef TIME_UTC\n#define TIME_UTC 1\n#endif\nstatic inline int termux_timespec_get(struct timespec *ts, int b) { return clock_gettime(0, ts) == 0 ? b : 0; }\n/' "$f"
+		fi
+	done
 
 	if [[ $TERMUX_ARCH != "arm" ]]; then
 		TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" -Dvenus=true"
