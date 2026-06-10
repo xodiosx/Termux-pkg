@@ -9,19 +9,13 @@ TERMUX_PKG_SHA256=b181b668afae817953c84635fac2dc4c2e5786c710b7d225ae215d15674a15
 TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_DEPENDS="libdrm, libepoxy, libglvnd, libx11, mesa"
 TERMUX_PKG_BUILD_DEPENDS="xorgproto"
-
-# Configure for static outputs
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="-Dplatforms=egl,glx -Ddefault_library=static"
 
 termux_step_pre_configure() {
-	# Fix Clang offsetof warning turning into an error
 	CPPFLAGS+=" -Wno-error=gnu-offsetof-extensions"
-
-	# Append the static flag to the linker
 	LDFLAGS+=" -static"
 
 	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i '1s/^/#include <sys\/syscall.h>\n#include <unistd.h>\n/' {} +
-	
 	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i 's/memfd_create(/syscall(SYS_memfd_create, /g' {} +
 
 	if [[ $TERMUX_ARCH != "arm" ]]; then
