@@ -3,6 +3,7 @@ TERMUX_PKG_DESCRIPTION="A conformant OpenGL ES implementation for Windows, Mac, 
 TERMUX_PKG_LICENSE="BSD 3-Clause, Apache-2.0"
 TERMUX_PKG_MAINTAINER="@termux"
 _COMMIT_DATE=2025.02.23
+TERMUX_PKG_API_LEVEL=24
 _COMMIT=f09a19cebdaf04bddcd3101e9783207cb5cf3e13
 _COMMIT_POSISION=24923
 TERMUX_PKG_SRCURL=git+https://chromium.googlesource.com/angle/angle
