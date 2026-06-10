@@ -10,16 +10,23 @@ TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_DEPENDS="libdrm, libepoxy, libglvnd, libx11, mesa"
 TERMUX_PKG_BUILD_DEPENDS="xorgproto"
 
-# Added -Ddefault_library=static to tell Meson to build static archives (.a)
+# Configure for static outputs
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="-Dplatforms=egl,glx -Ddefault_library=static"
 
 termux_step_pre_configure() {
-	# error: using an array subscript expression within 'offsetof' is a Clang extension [-Werror,-Wgnu-offsetof-extensions]
-	# list_for_each_entry_safe(struct vrend_linked_shader_program, ent, &shader->programs, sl[shader->sel->type])
+	# Fix Clang offsetof warning turning into an error
 	CPPFLAGS+=" -Wno-error=gnu-offsetof-extensions"
 
-	# Added -static to tell the linker to compile static executables (like virgl_test_server)
+	# Append the static flag to the linker
 	LDFLAGS+=" -static"
+
+	# --- WORKAROUND FOR PRE-API 26 ANDROID HOOKS ---
+	# 1. Force inject system call headers to the top of any 'anon_file.c' in the source tree
+	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i '1s/^/#include <sys\/syscall.h>\n#include <unistd.h>\n/' {} +
+	
+	# 2. Swap out the restricted 'memfd_create' function for a generic, clean direct system call
+	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i 's/memfd_create(/syscall(SYS_memfd_create, /g' {} +
+	# -----------------------------------------------
 
 	if [[ $TERMUX_ARCH != "arm" ]]; then
 		TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" -Dvenus=true"
