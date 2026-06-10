@@ -20,13 +20,9 @@ termux_step_pre_configure() {
 	# Append the static flag to the linker
 	LDFLAGS+=" -static"
 
-	# --- WORKAROUND FOR PRE-API 26 ANDROID HOOKS ---
-	# 1. Force inject system call headers to the top of any 'anon_file.c' in the source tree
 	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i '1s/^/#include <sys\/syscall.h>\n#include <unistd.h>\n/' {} +
 	
-	# 2. Swap out the restricted 'memfd_create' function for a generic, clean direct system call
 	find "$TERMUX_PKG_SRCDIR" -name "anon_file.c" -exec sed -i 's/memfd_create(/syscall(SYS_memfd_create, /g' {} +
-	# -----------------------------------------------
 
 	if [[ $TERMUX_ARCH != "arm" ]]; then
 		TERMUX_PKG_EXTRA_CONFIGURE_ARGS+=" -Dvenus=true"
