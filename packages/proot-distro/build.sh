@@ -2,10 +2,16 @@ TERMUX_PKG_HOMEPAGE=https://github.com/termux/proot-distro
 TERMUX_PKG_DESCRIPTION="Termux official utility for managing proot'ed Linux distributions"
 TERMUX_PKG_LICENSE="GPL-3.0"
 TERMUX_PKG_MAINTAINER="@termux"
-TERMUX_PKG_VERSION="5.0.2"
-TERMUX_PKG_SRCURL=https://github.com/termux/proot-distro/archive/refs/tags/v${TERMUX_PKG_VERSION}.tar.gz
-TERMUX_PKG_SHA256=d72f3192cc38f6ecdf8c0f44c1f4c0fd9b332e938ed8a355c6c89f9cd5044f92
-TERMUX_PKG_DEPENDS="proot (>= 5.1.107-71), python"
+TERMUX_PKG_VERSION="5.1.7"
+TERMUX_PKG_SRCURL="https://github.com/termux/proot-distro/archive/refs/tags/v${TERMUX_PKG_VERSION}.tar.gz"
+TERMUX_PKG_SHA256=6fcd6ae5e9efe8fddf35b154de02ee89c2e78e64c0dc587a6961ef21147612b9
+# note for regular maintainers of proot-distro: since version 5.1.5, proot-distro
+# has been detected by termux_step_create_python_debscripts as depending conditionally
+# on pytest. since termux_step_create_python_debscripts cannot fully resolve conditional
+# dependencies on its own, the resolution of this dependency is passed off to python-pip
+# at install-time, which checks it to programmatically
+# confirm that pytest is not required at runtime.
+TERMUX_PKG_DEPENDS="proot (>= 5.1.107-71), python, python-pip"
 TERMUX_PKG_SUGGESTS="bash-completion, termux-api, zsh-completions"
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_PLATFORM_INDEPENDENT=true
