@@ -5,9 +5,8 @@ TERMUX_PKG_MAINTAINER="@termux"
 TERMUX_PKG_VERSION="1.5.10"
 TERMUX_PKG_SRCURL="https://github.com/anholt/libepoxy/archive/refs/tags/${TERMUX_PKG_VERSION}.tar.gz"
 # SHA256 of the GitHub archive tar.gz
-TERMUX_PKG_SHA256="a7ced37f4102b745ac86d6a20a47bb146fea370160a08f17fc42bc81db199bf3"
-
-TERMUX_PKG_DEPENDS="xorgproto"
+TERMUX_PKG_SHA256="a7ced37f4102b745ac86d6a70a9da399cc139ff168ba6b8002b4d8d43c900c15"
+TERMUX_PKG_DEPENDS="opengl"
 TERMUX_PKG_BUILD_DEPENDS="pkg-config"
 
 # Force standard X11 and EGL, drop GLX exactly as configured in your local script
