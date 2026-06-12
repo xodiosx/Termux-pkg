@@ -1,6 +1,6 @@
 --- libepoxy-1.5.3/src/dispatch_common.c	2018-10-05 02:40:48.000000000 +0300
 +++ libepoxy-1.5.3.mod/src/dispatch_common.c	2018-10-06 21:07:20.971157033 +0300
-@@ -178,11 +178,21 @@
+@@ -178,11 +178,23 @@
  #define OPENGL_LIB "/System/Library/Frameworks/OpenGL.framework/Versions/Current/OpenGL"
  #define GLES1_LIB "libGLESv1_CM.so"
  #define GLES2_LIB "libGLESv2.so"
