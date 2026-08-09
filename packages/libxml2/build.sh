@@ -38,7 +38,7 @@ TERMUX_PKG_REPLACES="libxml2-dev"
 
 termux_step_host_build() {
 	if [[ "$TERMUX_ON_DEVICE_BUILD" == "false" ]]; then
-		termux_download_ubuntu_packages doxygen libclang-cpp18 libclang1-18 libfmt9 libxapian30
+		termux_download_ubuntu_packages doxygen libclang-cpp18 libllvm18 libclang1-18 libfmt9 libxapian30
 	fi
 }
 
