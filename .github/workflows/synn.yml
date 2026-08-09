@@ -7,36 +7,33 @@ on:
 
 permissions:
   contents: write
-  workflows: write
+  
 
 jobs:
   sync-upstream:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Configure Git and Sync
+      - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          # Add upstream repository
+      - name: Fetch and Merge Upstream
+        run: |
           git remote add upstream https://github.com/termux/termux-packages.git
           git fetch upstream master
-
-          # Merge upstream into your master branch
           git checkout master
-          git merge upstream/master --no-edit -m "Chore: sync with upstream termux-packages" || {
-            echo "Merge conflict detected! Resolving by keeping local custom packages..."
+          if ! git merge upstream/master --no-edit -m "Chore: sync with upstream termux-packages"; then
+            echo "Merge conflict detected! Keeping local custom packages..."
             git checkout --ours .
             git add .
             git commit -m "Chore: resolved merge conflicts during upstream sync"
-          }
-
-          # Push changes back to your fork
+          fi
           git push origin master
