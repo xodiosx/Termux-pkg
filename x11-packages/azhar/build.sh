@@ -3,12 +3,13 @@ TERMUX_PKG_DESCRIPTION="Nintendo 3DS video game console emulator"
 TERMUX_PKG_LICENSE="GPL-2.0"
 TERMUX_PKG_MAINTAINER="@termux-user-repository"
 TERMUX_PKG_VERSION="2125.1.3"
-TERMUX_PKG_GIT_BRANCH="$TERMUX_PKG_VERSION"
 TERMUX_PKG_SRCURL="git+https://github.com/azahar-emu/azahar"
 TERMUX_PKG_SHA256=a6ba40a1033bb6cac783428f3b730ff22aa419e2fb239df548afc1b535cc58cb
-TERMUX_PKG_DEPENDS="jack, opengl, pipewire, sdl2, vulkan-headers, qt6-qtbase, qt6-qtmultimedia, libxext, libx11, qt6-qttools, openssl, cryptopp, spirv-headers, spirv-tools, nlohmann-json, catch2, portaudio, libcpufeatures, boost, boost-headers"
-TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules, qt6-qtbase-cross-tools, qt6-qtmultimedia-cross-tools, qt6-qttools-cross-tools, catch2-static"
+TERMUX_PKG_DEPENDS="jack, opengl, pipewire, sdl2, vulkan-headers, qt6-qtbase, libxext, libx11, openssl, cryptopp, spirv-headers, spirv-tools, nlohmann-json, catch2, portaudio, libcpufeatures, boost, fmt, ffmpeg, enet, rapidjson, zstd, libusb"
+TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules"
 TERMUX_PKG_AUTO_UPDATE=false
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
--DCMAKE_INSTALL_PREFIX=${TERMUX__PREFIX}
+-DCMAKE_INSTALL_PREFIX=${TERMUX_PREFIX}
+-DENABLE_QT=ON
+-DENABLE_SDL2=ON
 "
