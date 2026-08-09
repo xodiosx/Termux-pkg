@@ -3,9 +3,9 @@ TERMUX_PKG_DESCRIPTION="Ambitious Vim-fork focused on extensibility and agility 
 TERMUX_PKG_LICENSE="Apache-2.0, VIM License"
 TERMUX_PKG_LICENSE_FILE="LICENSE.txt"
 TERMUX_PKG_MAINTAINER="Joshua Kahn <tom@termux.dev>"
-TERMUX_PKG_VERSION="0.13.0~dev-806+g19f64a2680"
+TERMUX_PKG_VERSION="0.13.0~dev-1281+g9f600c8914"
 TERMUX_PKG_SRCURL="https://github.com/neovim/neovim/archive/${TERMUX_PKG_VERSION##*+g}.tar.gz"
-TERMUX_PKG_SHA256=a741131864f5bcb2f461052cf92ce5b886b5700e0dd6393946cb95e876cafcd4
+TERMUX_PKG_SHA256=4ccf3c9306f078057b14f5b8d05605e4431f2927bbbea01c967fea8ac88db762
 TERMUX_PKG_REPOLOGY_METADATA_VERSION="${TERMUX_PKG_VERSION%%~*}"
 TERMUX_PKG_DEPENDS="libandroid-support, libiconv, libmsgpack, libunibilium, libuv, libvterm (>= 1:0.3-0), lua51-lpeg, luajit, luv, tree-sitter, tree-sitter-parsers, utf8proc"
 TERMUX_PKG_BREAKS="neovim"
@@ -13,9 +13,7 @@ TERMUX_PKG_CONFLICTS="neovim"
 TERMUX_PKG_HOSTBUILD=true
 TERMUX_PKG_CONFFILES="share/nvim/sysinit.vim"
 TERMUX_PKG_AUTO_UPDATE=true
-TERMUX_PKG_UPDATE_VERSION_REGEXP="v.*-dev.*\+g[0-9a-f]*"
-TERMUX_PKG_UPDATE_VERSION_SED_REGEXP="s/-/~/"
-
+TERMUX_PKG_UPDATE_VERSION_REGEXP="v[\d.]+~dev-\d+\+g[0-9a-f]*"
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DLUAJIT_INCLUDE_DIR=$TERMUX_PREFIX/include/luajit-2.1
 -DLPEG_LIBRARY=$TERMUX_PREFIX/lib/liblpeg-5.1.so
@@ -25,30 +23,40 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_pkg_auto_update() {
-	local response commit latest_nightly
-	response="$(curl -sL \
-		-H "Accept: application/vnd.github+json" \
-		-H "X-GitHub-Api-Version: 2022-11-28" \
-		https://api.github.com/repos/neovim/neovim/releases/tags/nightly
-	)"
+	local nightly_sha
+	read -r nightly_sha _ < <(
+		git ls-remote --tags "https://github.com/neovim/neovim" "nightly"
+	)
 
-	commit="$(jq -r '.target_commitish' <<< "$response")"
-	if [[ -z "${commit:-}" ]]; then
+	if [[ -z "${nightly_sha:-}" ]]; then
 		{
-			echo "WARN: Couldn't fetch latest nightly tag from "
-			echo "https://api.github.com/repos/neovim/neovim/releases/tags/nightly"
-			echo "curl response:"
-			jq '.' <<< "$response"
-		} >&2
-		return
-	elif [[ "${commit::10}" == "${TERMUX_PKG_VERSION##*+g}" ]]; then
+			echo "INFO: failed to obtain hash of 'nightly' tag from 'https://github.com/neovim/neovim'."
+			echo "This is probably a temporary issue, skipping update this run."
+			return
+		} | tee "${GITHUB_STEP_SUMMARY:-/dev/null}" >&2
+	fi
+
+	if [[ "${nightly_sha::10}" == "${TERMUX_PKG_VERSION##*+g}" ]]; then
 		echo "INFO: No update needed. Already at version '${TERMUX_PKG_VERSION}'."
 		return
 	fi
 
-	latest_nightly="$(grep --max-count=1 -oP "$TERMUX_PKG_UPDATE_VERSION_REGEXP" < <(jq -r '.body' <<< "$response"))"
-	# We already filtered the version, so unset the regex to avoid reapplying it.
-	unset TERMUX_PKG_UPDATE_VERSION_REGEXP
+	local latest_nightly repo_dir="${TMPDIR:-/tmp}/neovim-nightly-auto-update"
+
+	[[ -e "$repo_dir" ]] && rm -rf "$repo_dir"
+	{
+		git clone --filter=tree:0 --sparse "https://github.com/neovim/neovim" "$repo_dir"
+		latest_nightly="$(git -C "$repo_dir" describe --first-parent --abbrev=10 "nightly")"
+	} &> /dev/null
+	rm -rf "$repo_dir"
+
+	# We need to transform the `git describe` output to match the `nvim --version`
+	# output used by Neovim's release workflow to determine the nightly version.
+	# See: https://github.com/neovim/neovim/blob/v0.12.4/cmake/GenerateVersion.cmake
+	local major minor patch
+	IFS='.' read -rd$'\n' major minor patch <<< "${latest_nightly%-*}" # 'v0' '12' '0'
+	latest_nightly="$major.$(( minor + 1 )).$patch+g${latest_nightly#*-g}" # v0.13.0-1084+ga277c08d98
+	latest_nightly="${latest_nightly/-/~dev-}" # v0.13.0~dev-1084+ga277c08d98
 
 	termux_pkg_upgrade_version "${latest_nightly}"
 }

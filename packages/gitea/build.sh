@@ -2,9 +2,9 @@ TERMUX_PKG_HOMEPAGE=https://gitea.io
 TERMUX_PKG_DESCRIPTION="Git with a cup of tea, painless self-hosted git service"
 TERMUX_PKG_LICENSE="MIT"
 TERMUX_PKG_MAINTAINER="@termux"
-TERMUX_PKG_VERSION="1.26.4"
+TERMUX_PKG_VERSION="1.27.1"
 TERMUX_PKG_SRCURL=https://github.com/go-gitea/gitea/archive/refs/tags/v$TERMUX_PKG_VERSION.tar.gz
-TERMUX_PKG_SHA256=8a483e21c04f697f86fe2b2e77881584b195a4b8f2b87cfb9812b14238ec9afc
+TERMUX_PKG_SHA256=d898d38c9efddf5b2a6985361668c1b6807834bb7177029854141aeac2f2afaf
 TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_DEPENDS="dash, git"
 TERMUX_PKG_BUILD_IN_SRC=true
@@ -29,9 +29,9 @@ termux_step_configure() {
 
 termux_step_make() {
 	LDFLAGS=""
-	LDFLAGS+=" -X code.gitea.io/gitea/modules/setting.CustomConf=$TERMUX_PREFIX/etc/gitea/app.ini"
-	LDFLAGS+=" -X code.gitea.io/gitea/modules/setting.AppWorkPath=$TERMUX_PREFIX/var/lib/gitea"
-	LDFLAGS+=" -X code.gitea.io/gitea/modules/setting.CustomPath=$TERMUX_PREFIX/var/lib/gitea"
+	LDFLAGS+=" -X gitea.dev/modules/setting.CustomConf=$TERMUX_PREFIX/etc/gitea/app.ini"
+	LDFLAGS+=" -X gitea.dev/modules/setting.AppWorkPath=$TERMUX_PREFIX/var/lib/gitea"
+	LDFLAGS+=" -X gitea.dev/modules/setting.CustomPath=$TERMUX_PREFIX/var/lib/gitea"
 	GITEA_VERSION=v"$TERMUX_PKG_VERSION" TAGS="bindata sqlite sqlite_unlock_notify" make all
 }
 

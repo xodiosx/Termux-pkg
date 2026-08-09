@@ -3814,3 +3814,14 @@ index 7cf0960524..57e1d9ddda 100644
        }
        if (topmost_transient_child) {
          window_->parent()->layer()->StackAbove(
+--- a/ui/views/controls/textfield/textfield.cc
++++ b/ui/views/controls/textfield/textfield.cc
+@@ -1582,7 +1582,7 @@
+ 
+ bool Textfield::IsCommandIdEnabled(int command_id, bool can_paste) const {
+   if (command_id ==
+-      std::to_underlying(ui::TouchEditable::MenuCommands::kPaste)) {
++      base::to_underlying(ui::TouchEditable::MenuCommands::kPaste)) {
+     return !GetReadOnly() && can_paste;
+   }
+   return IsCommandIdEnabled(command_id);
