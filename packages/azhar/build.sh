@@ -14,3 +14,10 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DENABLE_LTO=OFF
 -DENABLE_TESTS=OFF
 "
+
+termux_step_post_extract_package() {
+    # Fix VK_NULL_HANDLE incompatibility with std::exchange
+    # Vulkan handles do not accept integer assignment, only nullptr.
+    sed -i 's/VK_NULL_HANDLE/nullptr/g' \
+        "${TERMUX_PKG_SRCDIR}/src/video_core/renderer_vulkan/vk_texture_runtime.h"
+}
