@@ -20,7 +20,7 @@ termux_step_configure() {
 		--enable-opengl_core \
 		--enable-alsa \
 		--enable-pulse \
-		--enable-openal \
+		--enable-al \
 		--enable-ffmpeg \
 		--enable-x11 \
 		--enable-qt
