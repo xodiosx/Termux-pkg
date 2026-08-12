@@ -14,7 +14,6 @@ TERMUX_PKG_BUILD_IN_SRC=true
 termux_step_configure() {
 	# Allow pkg-config to find target .pc files
 	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$TERMUX_PREFIX/share/pkgconfig"
-	# 
 	# Pass include and library directories directly
 	CFLAGS+=" -I$TERMUX_PREFIX/include"
 	CPPFLAGS+=" -I$TERMUX_PREFIX/include"
