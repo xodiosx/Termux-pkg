@@ -21,6 +21,5 @@ termux_step_configure() {
 		--enable-alsa \
 		--enable-pulse \
 		--enable-ffmpeg \
-		--enable-x11 \
-		--enable-qt
+		--enable-x11
 }
