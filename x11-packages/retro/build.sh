@@ -10,18 +10,18 @@ TERMUX_PKG_EXCLUDED_ARCHES="arm i686 x86_64"
 TERMUX_PKG_DEPENDS="libandroid-shmem, libx11, libxrandr, libxext, freetype, alsa-lib, pulseaudio, openal-soft, libglvnd, ffmpeg, libsixel, qt6-qtbase, libxcb, vulkan-loader"
 TERMUX_PKG_BUILD_DEPENDS="pkg-config, cmake, vulkan-headers, autoconf, automake, libtool"
 TERMUX_PKG_BUILD_IN_SRC=true
-TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
---enable-vulkan
---enable-opengl
---enable-opengl_core
---enable-alsa
---enable-pulse
---enable-openal
---enable-ffmpeg
---enable-x11
---enable-qt
-"
-
-termux_step_pre_configure() {
+termux_step_configure() {
 	LDFLAGS+=" -landroid-shmem"
+
+	./configure \
+		--prefix="$TERMUX_PREFIX" \
+		--enable-vulkan \
+		--enable-opengl \
+		--enable-opengl_core \
+		--enable-alsa \
+		--enable-pulse \
+		--enable-openal \
+		--enable-ffmpeg \
+		--enable-x11 \
+		--enable-qt
 }
