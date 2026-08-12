@@ -12,10 +12,17 @@ TERMUX_PKG_BUILD_DEPENDS="pkg-config, cmake, vulkan-headers, autoconf, automake,
 TERMUX_PKG_BUILD_IN_SRC=true
 
 termux_step_configure() {
-	# Essential paths for cross‑compilation in the builder
+	# Essential cross‑compilation paths
 	CPPFLAGS+=" -I$TERMUX_PREFIX/include"
 	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
 	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig"
+
+	# Fix pkg‑config not found
+	export PKG_CONFIG="$TERMUX_PREFIX/bin/pkg-config"
+
+	# Help ALSA detection (headers and library)
+	export ALSA_CFLAGS="-I$TERMUX_PREFIX/include/alsa"
+	export ALSA_LIBS="-L$TERMUX_PREFIX/lib -lasound"
 
 	./configure \
 		--prefix="$TERMUX_PREFIX" \
