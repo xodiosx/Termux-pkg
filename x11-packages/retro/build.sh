@@ -10,16 +10,22 @@ TERMUX_PKG_EXCLUDED_ARCHES="arm i686 x86_64"
 TERMUX_PKG_DEPENDS="libandroid-shmem, fontconfig, libzip, libx11, libxrandr, libxext, freetype, alsa-lib, pulseaudio, sdl2, sdl2-ttf, libglvnd, ffmpeg, libsixel, zlib, libxcb, vulkan-loader"
 TERMUX_PKG_BUILD_DEPENDS="pkg-config, cmake, vulkan-headers, autoconf, automake, libtool"
 TERMUX_PKG_BUILD_IN_SRC=true
+
 termux_step_configure() {
-	LDFLAGS+=" -landroid-shmem"
+	# Essential paths for cross‑compilation in the builder
+	CPPFLAGS+=" -I$TERMUX_PREFIX/include"
+	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
+	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig"
 
 	./configure \
 		--prefix="$TERMUX_PREFIX" \
+		--host="$TERMUX_HOST_PLATFORM" \
+		--disable-ffmpeg \
 		--enable-vulkan \
-		--enable-sdl2 \
-		--enable-opengles \
+		--enable-opengl \
 		--enable-alsa \
 		--enable-pulse \
-		--disable-ffmpeg \
-		--enable-x11
+		--enable-x11 \
+		--enable-sdl2 \
+		--enable-opengles
 }
