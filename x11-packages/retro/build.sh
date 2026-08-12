@@ -12,17 +12,13 @@ TERMUX_PKG_BUILD_DEPENDS="pkg-config, cmake, vulkan-headers, autoconf, automake,
 TERMUX_PKG_BUILD_IN_SRC=true
 
 termux_step_configure() {
-	# Essential cross‑compilation paths
+	# Allow the host's pkg-config to locate target .pc files
+	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$TERMUX_PREFIX/share/pkgconfig"
+
+	# Pass include and library directories directly to RetroArch's build script
+	CFLAGS+=" -I$TERMUX_PREFIX/include"
 	CPPFLAGS+=" -I$TERMUX_PREFIX/include"
 	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
-	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig"
-
-	# Fix pkg‑config not found
-	export PKG_CONFIG="$TERMUX_PREFIX/bin/pkg-config"
-
-	# Help ALSA detection (headers and library)
-	export ALSA_CFLAGS="-I$TERMUX_PREFIX/include/alsa"
-	export ALSA_LIBS="-L$TERMUX_PREFIX/lib -lasound"
 
 	./configure \
 		--prefix="$TERMUX_PREFIX" \
@@ -30,9 +26,9 @@ termux_step_configure() {
 		--disable-ffmpeg \
 		--enable-vulkan \
 		--enable-opengl \
+		--enable-opengles \
 		--enable-alsa \
 		--enable-pulse \
 		--enable-x11 \
-		--enable-sdl2 \
-		--enable-opengles
+		--enable-sdl2
 }
