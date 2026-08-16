@@ -16,10 +16,8 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 --enable-vulkan
 --enable-opengl
 --enable-opengles
---enable-alsa
 --enable-pulse
 --enable-x11
---enable-sdl2
 "
 
 termux_step_pre_configure() {
