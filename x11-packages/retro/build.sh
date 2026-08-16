@@ -24,6 +24,23 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 
 termux_step_pre_configure() {
 	# Ensure pkg-config is found
-	#export PKG_CONFIG="$TERMUX_PREFIX/bin/pkg-config"
+	export PKG_CONFIG="$TERMUX_PREFIX/bin/pkg-config"
 	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$TERMUX_PREFIX/share/pkgconfig"
+
+	# Add Termux include and library paths
+	CFLAGS+=" -I$TERMUX_PREFIX/include"
+	CPPFLAGS+=" -I$TERMUX_PREFIX/include"
+	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
+
+	# Force ALSA to use Termux's headers and library
+	export ALSA_CFLAGS="-I$TERMUX_PREFIX/include/alsa"
+	export ALSA_LIBS="-L$TERMUX_PREFIX/lib -lasound"
+}
+
+termux_step_configure() {
+	# Override the default configure step to avoid the unsupported --disable-dependency-tracking
+	./configure \
+		--prefix="$TERMUX_PREFIX" \
+		--host="$TERMUX_HOST_PLATFORM" \
+		$TERMUX_PKG_EXTRA_CONFIGURE_ARGS
 }
