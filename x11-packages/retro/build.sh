@@ -11,27 +11,30 @@ TERMUX_PKG_DEPENDS="libandroid-shmem, fontconfig, libzip, libx11, libxrandr, lib
 TERMUX_PKG_BUILD_DEPENDS="pkg-config, cmake, vulkan-headers, autoconf, automake, libtool"
 TERMUX_PKG_BUILD_IN_SRC=true
 
+# Centralize all your custom configure flags here
+TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
+--disable-ffmpeg
+--enable-vulkan
+--enable-opengl
+--enable-opengles
+--disable-alsa
+--enable-pulse
+--enable-x11
+--enable-sdl2
+"
+
 termux_step_configure() {
-	# Allow pkg-config to find target .pc files
-	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$TERMUX_PREFIX/share/pkgconfig"
-	# Pass include and library directories directly
-	CFLAGS+=" -I$TERMUX_PREFIX/include"
-	CPPFLAGS+=" -I$TERMUX_PREFIX/include"
-	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
+	# RetroArch uses PKG_CONF_PATH instead of the standard PKG_CONFIG variable
+	export PKG_CONF_PATH="$PKG_CONFIG"
 
-	# Force ALSA detection to use Termux paths
-	export ALSA_CFLAGS="-I$TERMUX_PREFIX/include/alsa"
-	export ALSA_LIBS="-L$TERMUX_PREFIX/lib -lasound"
+	# Explicitly include SDL2 as a fallback in case pkg-config is still ignored
+	#CFLAGS+=" -I$TERMUX_PREFIX/include/SDL2"
+	
+	# Ensure Android shared memory library is linked
+	#LDFLAGS+=" -landroid-shmem"
 
-	./configure \
-		--prefix="$TERMUX_PREFIX" \
-		--host="$TERMUX_HOST_PLATFORM" \
-		--disable-ffmpeg \
-		--enable-vulkan \
-		--enable-opengl \
-		--enable-opengles \
-		--disable-alsa \
-		--enable-pulse \
-		--enable-x11 \
-		--enable-sdl2
+	# Call configure manually to avoid standard Autotools flags being injected
+	#./configure \
+	#	--prefix="$TERMUX_PREFIX" \
+	#	$TERMUX_PKG_EXTRA_CONFIGURE_ARGS
 }
