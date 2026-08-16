@@ -1,0 +1,10 @@
+--- a/ui/xemu-controllers.h
++++ b/ui/xemu-controllers.h
+@@ -17,6 +17,7 @@
+ #ifndef XEMU_CONTROLLERS_H
+ #define XEMU_CONTROLLERS_H
+
++#include <utility>
+ #include "xemu-input.h"
+ #include "xemu-settings.h"
+ #include <SDL.h>
