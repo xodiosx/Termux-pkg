@@ -1,0 +1,12 @@
+--- a/meson.build	2025-01-18 15:44:52.062949547 +0530
++++ b/meson.build	2025-01-18 15:44:47.922949548 +0530
+@@ -555,8 +555,7 @@
+     gio = not_found
+   endif
+   if gio.found()
+-    gdbus_codegen = find_program(gio.get_variable('gdbus_codegen'),
+-                                 required: get_option('gio'))
++    gdbus_codegen = find_program('gdbus_codegen')
+     gio_unix = dependency('gio-unix-2.0', required: get_option('gio'),
+                           method: 'pkg-config', kwargs: static_kwargs)
+     gio = declare_dependency(dependencies: [gio, gio_unix],

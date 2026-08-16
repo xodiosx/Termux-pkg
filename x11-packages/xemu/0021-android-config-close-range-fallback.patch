@@ -1,0 +1,11 @@
+--- xemu/util/async-teardown.c	2025-01-18 15:34:30.062949784 +0530
++++ xemu.mod/util/async-teardown.c	2025-01-18 15:49:35.498949439 +0530
+@@ -39,7 +39,7 @@
+     int fd, dfd;
+     DIR *dir;
+ 
+-#ifdef CONFIG_CLOSE_RANGE
++#if defined(CONFIG_CLOSE_RANGE) && !defined(__ANDROID__)
+     int r = close_range(0, ~0U, 0);
+     if (!r) {
+         /* Success, no need to try other ways. */

@@ -1,0 +1,40 @@
+--- xemu/hw/xbox/nv2a/pgraph/vk/display.c	2025-01-14 09:59:25.615426981 +0530
++++ xemu.mod/hw/xbox/nv2a/pgraph/vk/display.c	2025-01-14 18:04:51.411415871 +0530
+@@ -632,15 +632,22 @@
+     // Allocate and bind image memory
+     VkMemoryRequirements memory_requirements;
+     vkGetImageMemoryRequirements(r->device, d->image, &memory_requirements);
+-
++
++    VkMemoryDedicatedAllocateInfo dedicated_alloc_info = {
++        .sType = VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO,
++        .image = d->image,  // Specify the image requiring dedicated allocation
++        .buffer = VK_NULL_HANDLE,
++    };
++
+     VkMemoryAllocateInfo alloc_info = {
+         .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+         .allocationSize = memory_requirements.size,
+         .memoryTypeIndex =
+             pgraph_vk_get_memory_type(pg, memory_requirements.memoryTypeBits,
+                                       VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
++        .pNext = &dedicated_alloc_info,  // Add dedicated allocation info to the chain
+     };
+-
++
+     VkExportMemoryAllocateInfo export_memory_alloc_info = {
+         .sType = VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO,
+         .handleTypes =
+@@ -649,9 +656,10 @@
+ #else
+             VK_EXTERNAL_MEMORY_HANDLE_TYPE_OPAQUE_FD_BIT
+ #endif
+-            ,
+     };
+-    alloc_info.pNext = &export_memory_alloc_info;
++
++    // Chain the export memory info to the dedicated allocation info
++    dedicated_alloc_info.pNext = &export_memory_alloc_info;
+ 
+     VK_CHECK(vkAllocateMemory(r->device, &alloc_info, NULL, &d->memory));
+     VK_CHECK(vkBindImageMemory(r->device, d->image, d->memory, 0));

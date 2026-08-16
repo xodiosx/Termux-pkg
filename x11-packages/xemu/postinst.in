@@ -1,0 +1,25 @@
+#!@TERMUX_PREFIX@/bin/sh
+
+mkdir -p "$HOME/.local/share/xemu/xemu"
+if ! [ -f "$HOME/.local/share/xemu/xemu/xemu.toml" ]; then
+	echo "[general]
+show_welcome = false
+
+[input.bindings]
+port1 = 'keyboard'
+
+[display.debug.video]
+x_pos = 1100
+y_pos = 30
+x_winsize = 180
+y_winsize = 60
+" > "$HOME/.local/share/xemu/xemu/xemu.toml"
+fi
+
+sed -i -E '/^\[sys\.files\]$/,/^\[.*\]$/ { /^\[sys\.files\]$/d; /^\[.*\]$/!d }' "$HOME/.local/share/xemu/xemu/xemu.toml"
+echo "[sys.files]
+bootrom_path = '@TERMUX_PREFIX@/share/xemu/mcpx_1.0.bin'
+flashrom_path = '@TERMUX_PREFIX@/share/xemu/4627v1.03.bin'
+hdd_path = '@TERMUX_PREFIX@/share/xemu/xbox_hdd.qcow2'" >> "$HOME/.local/share/xemu/xemu/xemu.toml"
+
+exit 0

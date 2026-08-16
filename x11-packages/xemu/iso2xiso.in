@@ -1,0 +1,30 @@
+#!@TERMUX_PREFIX@/bin/sh
+
+help_text(){
+echo " Usage -"
+echo
+echo "  $(basename "$0") \"/path/to/game.iso\""
+echo
+}
+
+[ -z "$1" ] && help_text && exit 1
+
+ISO_PATH="$(readlink -f "$1")"
+
+set -e
+
+[ -f "$ISO_PATH" ] || { echo && echo "Error: File not found" && echo && help_text && exit 1; }
+
+ISO_NAME="$(basename "$ISO_PATH")"
+
+if ! echo "$ISO_NAME" | grep -Eq "\.x\.iso$"; then
+	dd if="$ISO_PATH" of="$(dirname "$ISO_PATH")/$(echo "$ISO_NAME" | sed -E "s/\.iso$//").x.iso" skip=387 bs=1M
+	echo
+	echo "Saved to -"
+	echo " \"$(dirname "$ISO_PATH")/$(echo "$ISO_NAME" | sed -E "s/\.iso$//").x.iso\""
+	echo
+else
+	echo
+	echo "File seems to be XISO"
+	echo
+fi

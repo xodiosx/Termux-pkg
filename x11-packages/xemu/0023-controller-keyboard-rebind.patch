@@ -1,0 +1,1143 @@
+From 7eb8a0a238d50c4ba54757596475ab6fb3d2b315 Mon Sep 17 00:00:00 2001
+From: Antonio Abbatangelo <contact@antangelo.com>
+Date: Sun, 6 Aug 2023 19:24:17 -0400
+Subject: [PATCH] ui: Support changing controller/keyboard mappings
+
+---
+ config_spec.yml         |  85 ++++++++++++++
+ ui/meson.build          |   1 +
+ ui/xemu-controllers.cc  | 102 ++++++++++++++++
+ ui/xemu-controllers.h   |  82 +++++++++++++
+ ui/xemu-input.c         | 251 ++++++++++++++++++++++++++++------------
+ ui/xemu-input.h         |  11 +-
+ ui/xemu-settings.cc     |  22 ++++
+ ui/xemu.c               |   4 +-
+ ui/xui/input-manager.cc |  23 ++--
+ ui/xui/main-menu.cc     | 217 +++++++++++++++++++++++++++++++++-
+ ui/xui/main-menu.hh     |  25 +++-
+ ui/xui/main.cc          |   4 +
+ 13 files changed, 735 insertions(+), 94 deletions(-)
+ create mode 100644 ui/xemu-controllers.cc
+ create mode 100644 ui/xemu-controllers.h
+
+diff --git a/config_spec.yml b/config_spec.yml
+index b858606e685..777c27d4ed4 100644
+--- a/config_spec.yml
++++ b/config_spec.yml
+@@ -128,6 +128,91 @@ input:
+     rtrigger:
+       type: integer
+       default: 18 # w
++  gamepad_mappings:
++    type: array
++    items:
++      gamepad_id: string
++      enable_rumble:
++        type: bool
++        default: true
++      # steel_battalion_mapping:
++      # ...
++      controller_mapping:
++        a:
++          type: integer
++          default: 0
++        b:
++          type: integer
++          default: 1
++        x:
++          type: integer
++          default: 2
++        y:
++          type: integer
++          default: 3
++        back:
++          type: integer
++          default: 4
++        guide:
++          type: integer
++          default: 5
++        start:
++          type: integer
++          default: 6
++        lstick_btn:
++          type: integer
++          default: 7
++        rstick_btn:
++          type: integer
++          default: 8
++        lshoulder:
++          type: integer
++          default: 9
++        rshoulder:
++          type: integer
++          default: 10
++        dpad_up:
++          type: integer
++          default: 11
++        dpad_down:
++          type: integer
++          default: 12
++        dpad_left:
++          type: integer
++          default: 13
++        dpad_right:
++          type: integer
++          default: 14
++        axis_left_x:
++          type: integer
++          default: 0
++        axis_left_y:
++          type: integer
++          default: 1
++        axis_right_x:
++          type: integer
++          default: 2
++        axis_right_y:
++          type: integer
++          default: 3
++        axis_trigger_left:
++          type: integer
++          default: 4
++        axis_trigger_right:
++          type: integer
++          default: 5
++        invert_axis_left_x:
++          type: bool
++          default: false
++        invert_axis_left_y:
++          type: bool
++          default: false
++        invert_axis_right_x:
++          type: bool
++          default: false
++        invert_axis_right_y:
++          type: bool
++          default: false
+ 
+ display:
+   quality:
+diff --git a/ui/meson.build b/ui/meson.build
+index 18bb7c97c18..56b15b69318 100644
+--- a/ui/meson.build
++++ b/ui/meson.build
+@@ -25,6 +25,7 @@ xemu_ss.add(files(
+   'xemu-monitor.c',
+   'xemu-net.c',
+   'xemu-settings.cc',
++  'xemu-controllers.cc',
+ 
+   'xemu.c',
+   'xemu-data.c',
+diff --git a/ui/xemu-controllers.cc b/ui/xemu-controllers.cc
+new file mode 100644
+index 00000000000..b5c9b4cf996
+--- /dev/null
++++ b/ui/xemu-controllers.cc
+@@ -0,0 +1,102 @@
++/*
++ * xemu Controller Binding Management
++ *
++ * Copyright (C) 2020-2023 Matt Borgerson
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#include "xemu-controllers.h"
++#include "xemu-settings.h"
++#include <assert.h>
++#include <limits>
++#include <string>
++
++std::pair<bool, bool>
++ControllerKeyboardRebindingMap::ConsumeRebindEvent(SDL_Event *event)
++{
++    if (event->type == SDL_KEYDOWN) {
++        *(g_keyboard_scancode_map[table_row]) = event->key.keysym.scancode;
++
++        return { true, true };
++    }
++
++    return { false, false };
++}
++
++std::pair<bool, bool>
++ControllerGamepadRebindingMap::ConsumeRebindEvent(SDL_Event *event)
++{
++    if (event->type == SDL_CONTROLLERDEVICEREMOVED) {
++        if (state->sdl_joystick_id == event->cdevice.which) {
++            return { false, true };
++        }
++    } else if (event->type == SDL_CONTROLLERBUTTONUP && table_row < 15 &&
++               seen_key_down) {
++        // Bind on controller up ensures the UI does not immediately respond
++        // once the new binding is applied
++
++        if (state->sdl_joystick_id != event->cbutton.which) {
++            return { false, false };
++        }
++
++        int *button_map[15] = {
++            &state->controller_map->controller_mapping.a,
++            &state->controller_map->controller_mapping.b,
++            &state->controller_map->controller_mapping.x,
++            &state->controller_map->controller_mapping.y,
++            &state->controller_map->controller_mapping.back,
++            &state->controller_map->controller_mapping.guide,
++            &state->controller_map->controller_mapping.start,
++            &state->controller_map->controller_mapping.lstick_btn,
++            &state->controller_map->controller_mapping.rstick_btn,
++            &state->controller_map->controller_mapping.lshoulder,
++            &state->controller_map->controller_mapping.rshoulder,
++            &state->controller_map->controller_mapping.dpad_up,
++            &state->controller_map->controller_mapping.dpad_down,
++            &state->controller_map->controller_mapping.dpad_left,
++            &state->controller_map->controller_mapping.dpad_right,
++        };
++
++        *(button_map[table_row]) = event->cbutton.button;
++
++        return { true, true };
++    } else if (event->type == SDL_CONTROLLERBUTTONDOWN && table_row < 15) {
++        // If we are rebinding with a controller, we should not consume the key
++        // up event from activating the button
++        seen_key_down = true;
++    } else if (event->type == SDL_CONTROLLERAXISMOTION && table_row >= 15 &&
++               std::abs(event->caxis.value >> 1) >
++                   std::numeric_limits<Sint16>::max() >> 2) {
++        // FIXME: Allow face buttons to map to axes
++        if (state->sdl_joystick_id != event->caxis.which) {
++            return { false, false };
++        }
++
++        int *axis_map[6] = {
++            &state->controller_map->controller_mapping.axis_left_x,
++            &state->controller_map->controller_mapping.axis_left_y,
++            &state->controller_map->controller_mapping.axis_right_x,
++            &state->controller_map->controller_mapping.axis_right_y,
++            &state->controller_map->controller_mapping.axis_trigger_left,
++            &state->controller_map->controller_mapping.axis_trigger_right,
++        };
++
++        *(axis_map[table_row - 15]) = event->caxis.axis;
++
++        return { true, true };
++    }
++
++    return { false, false };
++}
+diff --git a/ui/xemu-controllers.h b/ui/xemu-controllers.h
+new file mode 100644
+index 00000000000..1cfb2cadb88
+--- /dev/null
++++ b/ui/xemu-controllers.h
+@@ -0,0 +1,82 @@
++/*
++ * xemu Settings Management
++ *
++ * Copyright (C) 2020-2023 Matt Borgerson
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
++ */
++
++#ifndef XEMU_CONTROLLERS_H
++#define XEMU_CONTROLLERS_H
++
++#include "xemu-input.h"
++#include "xemu-settings.h"
++#include <SDL.h>
++
++#ifdef __cplusplus
++
++struct RebindingMap {
++    // Returns [consume, cancel]:
++    // consume: Whether the SDL_Event should not propagate to the UI
++    // cancel: Whether this rebinding map should be cancelled
++    virtual std::pair<bool, bool> ConsumeRebindEvent(SDL_Event *event) = 0;
++
++    int GetTableRow() const
++    {
++        return table_row;
++    }
++
++    virtual ~RebindingMap()
++    {
++    }
++
++protected:
++    int table_row;
++    RebindingMap(int table_row) : table_row{ table_row }
++    {
++    }
++};
++
++struct ControllerKeyboardRebindingMap : public virtual RebindingMap {
++    std::pair<bool, bool> ConsumeRebindEvent(SDL_Event *event) override;
++
++    ControllerKeyboardRebindingMap(int table_row) : RebindingMap(table_row)
++    {
++    }
++};
++
++class ControllerGamepadRebindingMap : public virtual RebindingMap {
++    ControllerState *state;
++    bool seen_key_down;
++
++public:
++    std::pair<bool, bool> ConsumeRebindEvent(SDL_Event *event) override;
++    ControllerGamepadRebindingMap(int table_row, ControllerState *state)
++        : RebindingMap(table_row), state{ state }, seen_key_down{ false }
++    {
++    }
++};
++
++extern "C" {
++#endif
++
++extern int *g_keyboard_scancode_map[25];
++
++GamepadMappings *xemu_settings_load_gamepad_mapping(const char *guid);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/ui/xemu-input.c b/ui/xemu-input.c
+index d9181fe2a62..a823379d2d6 100644
+--- a/ui/xemu-input.c
++++ b/ui/xemu-input.c
+@@ -28,9 +28,12 @@
+ #include "qemu/timer.h"
+ #include "qemu/config-file.h"
+ 
++#include "xemu-controllers.h"
+ #include "xemu-input.h"
+ #include "xemu-notifications.h"
+ #include "xemu-settings.h"
++#include <stdio.h>
++#include <stdlib.h>
+ 
+ #include "sysemu/blockdev.h"
+ 
+@@ -117,7 +120,90 @@ static const char **peripheral_params_settings_map[4][2] = {
+       &g_config.input.peripherals.port4.peripheral_param_1 }
+ };
+ 
+-static int sdl_kbd_scancode_map[25];
++int *g_keyboard_scancode_map[25] = {
++    &g_config.input.keyboard_controller_scancode_map.a,
++    &g_config.input.keyboard_controller_scancode_map.b,
++    &g_config.input.keyboard_controller_scancode_map.x,
++    &g_config.input.keyboard_controller_scancode_map.y,
++    &g_config.input.keyboard_controller_scancode_map.dpad_left,
++    &g_config.input.keyboard_controller_scancode_map.dpad_up,
++    &g_config.input.keyboard_controller_scancode_map.dpad_right,
++    &g_config.input.keyboard_controller_scancode_map.dpad_down,
++    &g_config.input.keyboard_controller_scancode_map.back,
++    &g_config.input.keyboard_controller_scancode_map.start,
++    &g_config.input.keyboard_controller_scancode_map.white,
++    &g_config.input.keyboard_controller_scancode_map.black,
++    &g_config.input.keyboard_controller_scancode_map.lstick_btn,
++    &g_config.input.keyboard_controller_scancode_map.rstick_btn,
++    &g_config.input.keyboard_controller_scancode_map.guide,
++    &g_config.input.keyboard_controller_scancode_map.lstick_up,
++    &g_config.input.keyboard_controller_scancode_map.lstick_left,
++    &g_config.input.keyboard_controller_scancode_map.lstick_right,
++    &g_config.input.keyboard_controller_scancode_map.lstick_down,
++    &g_config.input.keyboard_controller_scancode_map.ltrigger,
++    &g_config.input.keyboard_controller_scancode_map.rstick_up,
++    &g_config.input.keyboard_controller_scancode_map.rstick_left,
++    &g_config.input.keyboard_controller_scancode_map.rstick_right,
++    &g_config.input.keyboard_controller_scancode_map.rstick_down,
++    &g_config.input.keyboard_controller_scancode_map.rtrigger,
++};
++
++static void check_and_reset_in_range(int *btn, int min, int max,
++                                     const char *message)
++{
++    if (*btn < min || *btn >= max) {
++        fprintf(stderr, "%s\n", message);
++        *btn = min;
++    }
++}
++
++static void xemu_input_bindings_reload_controller_map(ControllerState *con)
++{
++    assert(con->type == INPUT_DEVICE_SDL_GAMECONTROLLER);
++
++    char guid[35] = { 0 };
++    SDL_JoystickGetGUIDString(con->sdl_joystick_guid, guid, sizeof(guid));
++    con->controller_map = xemu_settings_load_gamepad_mapping(guid);
++
++#define CHECK_RESET_BUTTON(btn)                                            \
++    check_and_reset_in_range(&con->controller_map->controller_mapping.btn, \
++                             SDL_CONTROLLER_BUTTON_INVALID,                \
++                             SDL_CONTROLLER_BUTTON_MAX,                    \
++                             "Invalid entry for button " #btn ", resetting")
++
++    CHECK_RESET_BUTTON(a);
++    CHECK_RESET_BUTTON(b);
++    CHECK_RESET_BUTTON(x);
++    CHECK_RESET_BUTTON(y);
++    CHECK_RESET_BUTTON(dpad_left);
++    CHECK_RESET_BUTTON(dpad_up);
++    CHECK_RESET_BUTTON(dpad_right);
++    CHECK_RESET_BUTTON(dpad_down);
++    CHECK_RESET_BUTTON(back);
++    CHECK_RESET_BUTTON(start);
++    CHECK_RESET_BUTTON(lshoulder);
++    CHECK_RESET_BUTTON(rshoulder);
++    CHECK_RESET_BUTTON(lstick_btn);
++    CHECK_RESET_BUTTON(rstick_btn);
++    CHECK_RESET_BUTTON(guide);
++
++#undef CHECK_RESET_BUTTON
++
++#define CHECK_RESET_AXIS(axis)                                              \
++    check_and_reset_in_range(&con->controller_map->controller_mapping.axis, \
++                             SDL_CONTROLLER_AXIS_INVALID,                   \
++                             SDL_CONTROLLER_AXIS_MAX,                       \
++                             "Invalid entry for button " #axis ", resetting")
++
++    CHECK_RESET_AXIS(axis_trigger_left);
++    CHECK_RESET_AXIS(axis_trigger_right);
++    CHECK_RESET_AXIS(axis_left_x);
++    CHECK_RESET_AXIS(axis_left_y);
++    CHECK_RESET_AXIS(axis_right_x);
++    CHECK_RESET_AXIS(axis_right_y);
++
++#undef CHECK_RESET_AXIS
++}
+ 
+ static const int port_map[4] = { 3, 4, 1, 2 };
+ 
+@@ -143,38 +229,14 @@ void xemu_input_init(void)
+     new_con->peripherals[0] = NULL;
+     new_con->peripherals[1] = NULL;
+ 
+-    sdl_kbd_scancode_map[0] = g_config.input.keyboard_controller_scancode_map.a;
+-    sdl_kbd_scancode_map[1] = g_config.input.keyboard_controller_scancode_map.b;
+-    sdl_kbd_scancode_map[2] = g_config.input.keyboard_controller_scancode_map.x;
+-    sdl_kbd_scancode_map[3] = g_config.input.keyboard_controller_scancode_map.y;
+-    sdl_kbd_scancode_map[4] = g_config.input.keyboard_controller_scancode_map.dpad_left;
+-    sdl_kbd_scancode_map[5] = g_config.input.keyboard_controller_scancode_map.dpad_up;
+-    sdl_kbd_scancode_map[6] = g_config.input.keyboard_controller_scancode_map.dpad_right;
+-    sdl_kbd_scancode_map[7] = g_config.input.keyboard_controller_scancode_map.dpad_down;
+-    sdl_kbd_scancode_map[8] = g_config.input.keyboard_controller_scancode_map.back;
+-    sdl_kbd_scancode_map[9] = g_config.input.keyboard_controller_scancode_map.start;
+-    sdl_kbd_scancode_map[10] = g_config.input.keyboard_controller_scancode_map.white;
+-    sdl_kbd_scancode_map[11] = g_config.input.keyboard_controller_scancode_map.black;
+-    sdl_kbd_scancode_map[12] = g_config.input.keyboard_controller_scancode_map.lstick_btn;
+-    sdl_kbd_scancode_map[13] = g_config.input.keyboard_controller_scancode_map.rstick_btn;
+-    sdl_kbd_scancode_map[14] = g_config.input.keyboard_controller_scancode_map.guide;
+-    sdl_kbd_scancode_map[15] = g_config.input.keyboard_controller_scancode_map.lstick_up;
+-    sdl_kbd_scancode_map[16] = g_config.input.keyboard_controller_scancode_map.lstick_left;
+-    sdl_kbd_scancode_map[17] = g_config.input.keyboard_controller_scancode_map.lstick_right;
+-    sdl_kbd_scancode_map[18] = g_config.input.keyboard_controller_scancode_map.lstick_down;
+-    sdl_kbd_scancode_map[19] = g_config.input.keyboard_controller_scancode_map.ltrigger;
+-    sdl_kbd_scancode_map[20] = g_config.input.keyboard_controller_scancode_map.rstick_up;
+-    sdl_kbd_scancode_map[21] = g_config.input.keyboard_controller_scancode_map.rstick_left;
+-    sdl_kbd_scancode_map[22] = g_config.input.keyboard_controller_scancode_map.rstick_right;
+-    sdl_kbd_scancode_map[23] = g_config.input.keyboard_controller_scancode_map.rstick_down;
+-    sdl_kbd_scancode_map[24] = g_config.input.keyboard_controller_scancode_map.rtrigger;
+-
+     for (int i = 0; i < 25; i++) {
+-        if( (sdl_kbd_scancode_map[i] < SDL_SCANCODE_UNKNOWN) ||
+-            (sdl_kbd_scancode_map[i] >= SDL_NUM_SCANCODES) ) {
+-            fprintf(stderr, "WARNING: Keyboard controller map scancode out of range (%d) : Disabled\n", sdl_kbd_scancode_map[i]);
+-            sdl_kbd_scancode_map[i] = SDL_SCANCODE_UNKNOWN;
+-        }
++        static const char *format_str =
++            "WARNING: Keyboard controller map scancode out of range "
++            "(%d) : Disabled\n";
++        char buf[128];
++        snprintf(buf, sizeof(buf), format_str, i);
++        check_and_reset_in_range(g_keyboard_scancode_map[i],
++                                 SDL_SCANCODE_UNKNOWN, SDL_NUM_SCANCODES, buf);
+     }
+ 
+     // Check to see if we should auto-bind the keyboard
+@@ -244,7 +306,6 @@ void xemu_input_process_sdl_events(const SDL_Event *event)
+         memset(new_con, 0, sizeof(ControllerState));
+         new_con->type                 = INPUT_DEVICE_SDL_GAMECONTROLLER;
+         new_con->name                 = SDL_GameControllerName(sdl_con);
+-        new_con->rumble_enabled       = true;
+         new_con->sdl_gamecontroller   = sdl_con;
+         new_con->sdl_joystick         = SDL_GameControllerGetJoystick(new_con->sdl_gamecontroller);
+         new_con->sdl_joystick_id      = SDL_JoystickInstanceID(new_con->sdl_joystick);
+@@ -259,6 +320,8 @@ void xemu_input_process_sdl_events(const SDL_Event *event)
+         SDL_JoystickGetGUIDString(new_con->sdl_joystick_guid, guid_buf, sizeof(guid_buf));
+         DPRINTF("Opened %s (%s)\n", new_con->name, guid_buf);
+ 
++        xemu_input_bindings_reload_controller_map(new_con);
++
+         QTAILQ_INSERT_TAIL(&available_controllers, new_con, entry);
+ 
+         // Do not replace binding for a currently bound device. In the case that
+@@ -395,20 +458,30 @@ void xemu_input_update_sdl_kbd_controller_state(ControllerState *state)
+     const uint8_t *kbd = SDL_GetKeyboardState(NULL);
+ 
+     for (int i = 0; i < 15; i++) {
+-        state->buttons |= kbd[sdl_kbd_scancode_map[i]] << i;
++        state->buttons |= kbd[*(g_keyboard_scancode_map[i])] << i;
+     }
+ 
+-    if (kbd[sdl_kbd_scancode_map[15]]) state->axis[CONTROLLER_AXIS_LSTICK_Y] = 32767;
+-    if (kbd[sdl_kbd_scancode_map[16]]) state->axis[CONTROLLER_AXIS_LSTICK_X] = -32768;
+-    if (kbd[sdl_kbd_scancode_map[17]]) state->axis[CONTROLLER_AXIS_LSTICK_X] = 32767;
+-    if (kbd[sdl_kbd_scancode_map[18]]) state->axis[CONTROLLER_AXIS_LSTICK_Y] = -32768;
+-    if (kbd[sdl_kbd_scancode_map[19]]) state->axis[CONTROLLER_AXIS_LTRIG] = 32767;
+-
+-    if (kbd[sdl_kbd_scancode_map[20]]) state->axis[CONTROLLER_AXIS_RSTICK_Y] = 32767;
+-    if (kbd[sdl_kbd_scancode_map[21]]) state->axis[CONTROLLER_AXIS_RSTICK_X] = -32768;
+-    if (kbd[sdl_kbd_scancode_map[22]]) state->axis[CONTROLLER_AXIS_RSTICK_X] = 32767;
+-    if (kbd[sdl_kbd_scancode_map[23]]) state->axis[CONTROLLER_AXIS_RSTICK_Y] = -32768;
+-    if (kbd[sdl_kbd_scancode_map[24]]) state->axis[CONTROLLER_AXIS_RTRIG] = 32767;
++    if (kbd[*(g_keyboard_scancode_map[15])])
++        state->axis[CONTROLLER_AXIS_LSTICK_Y] = 32767;
++    if (kbd[*(g_keyboard_scancode_map[16])])
++        state->axis[CONTROLLER_AXIS_LSTICK_X] = -32768;
++    if (kbd[*(g_keyboard_scancode_map[17])])
++        state->axis[CONTROLLER_AXIS_LSTICK_X] = 32767;
++    if (kbd[*(g_keyboard_scancode_map[18])])
++        state->axis[CONTROLLER_AXIS_LSTICK_Y] = -32768;
++    if (kbd[*(g_keyboard_scancode_map[19])])
++        state->axis[CONTROLLER_AXIS_LTRIG] = 32767;
++
++    if (kbd[*(g_keyboard_scancode_map[20])])
++        state->axis[CONTROLLER_AXIS_RSTICK_Y] = 32767;
++    if (kbd[*(g_keyboard_scancode_map[21])])
++        state->axis[CONTROLLER_AXIS_RSTICK_X] = -32768;
++    if (kbd[*(g_keyboard_scancode_map[22])])
++        state->axis[CONTROLLER_AXIS_RSTICK_X] = 32767;
++    if (kbd[*(g_keyboard_scancode_map[23])])
++        state->axis[CONTROLLER_AXIS_RSTICK_Y] = -32768;
++    if (kbd[*(g_keyboard_scancode_map[24])])
++        state->axis[CONTROLLER_AXIS_RTRIG] = 32767;
+ }
+ 
+ void xemu_input_update_sdl_controller_state(ControllerState *state)
+@@ -416,48 +489,76 @@ void xemu_input_update_sdl_controller_state(ControllerState *state)
+     state->buttons = 0;
+     memset(state->axis, 0, sizeof(state->axis));
+ 
+-    const SDL_GameControllerButton sdl_button_map[15] = {
+-        SDL_CONTROLLER_BUTTON_A,
+-        SDL_CONTROLLER_BUTTON_B,
+-        SDL_CONTROLLER_BUTTON_X,
+-        SDL_CONTROLLER_BUTTON_Y,
+-        SDL_CONTROLLER_BUTTON_DPAD_LEFT,
+-        SDL_CONTROLLER_BUTTON_DPAD_UP,
+-        SDL_CONTROLLER_BUTTON_DPAD_RIGHT,
+-        SDL_CONTROLLER_BUTTON_DPAD_DOWN,
+-        SDL_CONTROLLER_BUTTON_BACK,
+-        SDL_CONTROLLER_BUTTON_START,
+-        SDL_CONTROLLER_BUTTON_LEFTSHOULDER,
+-        SDL_CONTROLLER_BUTTON_RIGHTSHOULDER,
+-        SDL_CONTROLLER_BUTTON_LEFTSTICK,
+-        SDL_CONTROLLER_BUTTON_RIGHTSTICK,
+-        SDL_CONTROLLER_BUTTON_GUIDE
+-    };
++#define SDL_MASK_BUTTON(state, btn, idx)                  \
++    (SDL_GameControllerGetButton(                         \
++         (state)->sdl_gamecontroller,                     \
++         (state)->controller_map->controller_mapping.btn) \
++     << idx)
++
++    state->buttons |= SDL_MASK_BUTTON(state, a, 0);
++    state->buttons |= SDL_MASK_BUTTON(state, b, 1);
++    state->buttons |= SDL_MASK_BUTTON(state, x, 2);
++    state->buttons |= SDL_MASK_BUTTON(state, y, 3);
++    state->buttons |= SDL_MASK_BUTTON(state, dpad_left, 4);
++    state->buttons |= SDL_MASK_BUTTON(state, dpad_up, 5);
++    state->buttons |= SDL_MASK_BUTTON(state, dpad_right, 6);
++    state->buttons |= SDL_MASK_BUTTON(state, dpad_down, 7);
++    state->buttons |= SDL_MASK_BUTTON(state, back, 8);
++    state->buttons |= SDL_MASK_BUTTON(state, start, 9);
++    state->buttons |= SDL_MASK_BUTTON(state, lshoulder, 10);
++    state->buttons |= SDL_MASK_BUTTON(state, rshoulder, 11);
++    state->buttons |= SDL_MASK_BUTTON(state, lstick_btn, 12);
++    state->buttons |= SDL_MASK_BUTTON(state, rstick_btn, 13);
++    state->buttons |= SDL_MASK_BUTTON(state, guide, 14);
++
++#undef SDL_MASK_BUTTON
++
++#define SDL_GET_AXIS(state, axis)    \
++    SDL_GameControllerGetAxis(       \
++        (state)->sdl_gamecontroller, \
++        (state)->controller_map->controller_mapping.axis)
++
++    state->axis[0] = SDL_GET_AXIS(state, axis_trigger_left);
++    state->axis[1] = SDL_GET_AXIS(state, axis_trigger_right);
++    state->axis[2] = SDL_GET_AXIS(state, axis_left_x);
++    state->axis[3] = SDL_GET_AXIS(state, axis_left_y);
++    state->axis[4] = SDL_GET_AXIS(state, axis_right_x);
++    state->axis[5] = SDL_GET_AXIS(state, axis_right_y);
++
++#undef SDL_GET_AXIS
++
++// FIXME: Check range
++#define INVERT_AXIS(controller_axis) \
++    state->axis[controller_axis] = -1 - state->axis[controller_axis]
++
++    if (state->controller_map->controller_mapping.invert_axis_left_x) {
++        INVERT_AXIS(CONTROLLER_AXIS_LSTICK_X);
++    }
+ 
+-    for (int i = 0; i < 15; i++) {
+-        state->buttons |= SDL_GameControllerGetButton(state->sdl_gamecontroller, sdl_button_map[i]) << i;
++    if (!state->controller_map->controller_mapping.invert_axis_left_y) {
++        INVERT_AXIS(CONTROLLER_AXIS_LSTICK_Y);
+     }
+ 
+-    const SDL_GameControllerAxis sdl_axis_map[6] = {
+-        SDL_CONTROLLER_AXIS_TRIGGERLEFT, SDL_CONTROLLER_AXIS_TRIGGERRIGHT,
+-        SDL_CONTROLLER_AXIS_LEFTX,       SDL_CONTROLLER_AXIS_LEFTY,
+-        SDL_CONTROLLER_AXIS_RIGHTX,      SDL_CONTROLLER_AXIS_RIGHTY,
+-    };
++    if (state->controller_map->controller_mapping.invert_axis_right_x) {
++        INVERT_AXIS(CONTROLLER_AXIS_RSTICK_X);
++    }
+ 
+-    for (int i = 0; i < 6; i++) {
+-        state->axis[i] = SDL_GameControllerGetAxis(state->sdl_gamecontroller, sdl_axis_map[i]);
++    if (!state->controller_map->controller_mapping.invert_axis_right_y) {
++        INVERT_AXIS(CONTROLLER_AXIS_RSTICK_Y);
+     }
+ 
+-    // FIXME: Check range
+-    state->axis[CONTROLLER_AXIS_LSTICK_Y] = -1 - state->axis[CONTROLLER_AXIS_LSTICK_Y];
+-    state->axis[CONTROLLER_AXIS_RSTICK_Y] = -1 - state->axis[CONTROLLER_AXIS_RSTICK_Y];
++#undef INVERT_AXIS
+ 
+     // xemu_input_print_controller_state(state);
+ }
+ 
+ void xemu_input_update_rumble(ControllerState *state)
+ {
+-    if (!state->rumble_enabled) {
++    if (state->type != INPUT_DEVICE_SDL_GAMECONTROLLER) {
++        return;
++    }
++
++    if (!state->controller_map->enable_rumble) {
+         return;
+     }
+ 
+diff --git a/ui/xemu-input.h b/ui/xemu-input.h
+index 330ae58a7c1..5e66a635cfe 100644
+--- a/ui/xemu-input.h
++++ b/ui/xemu-input.h
+@@ -29,6 +29,8 @@
+ #include <stdbool.h>
+ 
+ #include "qemu/queue.h"
++#include "xemu-settings.h"
++#include <SDL2/SDL.h>
+ 
+ enum controller_state_buttons_mask {
+     CONTROLLER_BUTTON_A          = (1 << 0),
+@@ -60,6 +62,12 @@ enum controller_state_axis_index {
+     CONTROLLER_AXIS__COUNT,
+ };
+ 
++#ifdef __cplusplus
++using GamepadMappings = struct config::input::gamepad_mappings;
++#else
++typedef struct gamepad_mappings GamepadMappings;
++#endif
++
+ enum controller_input_device_type {
+     INPUT_DEVICE_SDL_KEYBOARD,
+     INPUT_DEVICE_SDL_GAMECONTROLLER,
+@@ -87,7 +95,6 @@ typedef struct ControllerState {
+     uint32_t animate_trigger_end;
+ 
+     // Rumble state
+-    bool rumble_enabled;
+     uint16_t rumble_l, rumble_r;
+ 
+     enum controller_input_device_type type;
+@@ -100,6 +107,8 @@ typedef struct ControllerState {
+     enum peripheral_type peripheral_types[2];
+     void *peripherals[2];
+ 
++    GamepadMappings *controller_map;
++
+     int   bound;  // Which port this input device is bound to
+     void *device; // DeviceState opaque
+ } ControllerState;
+diff --git a/ui/xemu-settings.cc b/ui/xemu-settings.cc
+index 5237d5682b3..825b23b4363 100644
+--- a/ui/xemu-settings.cc
++++ b/ui/xemu-settings.cc
+@@ -31,6 +31,7 @@
+ #include <iostream>
+ #include <locale.h>
+ 
++#include "xemu-controllers.h"
+ #include "xemu-settings.h"
+ 
+ #define DEFINE_CONFIG_TREE
+@@ -254,3 +255,24 @@ void remove_net_nat_forward_ports(unsigned int index)
+     cnode->free_allocations(&g_config);
+     cnode->store_to_struct(&g_config);
+ }
++
++GamepadMappings *xemu_settings_load_gamepad_mapping(const char *guid)
++{
++    for (unsigned int i = 0; i < g_config.input.gamepad_mappings_count; ++i) {
++        auto *mapping = &g_config.input.gamepad_mappings[i];
++        if (strcmp(mapping->gamepad_id, guid) == 0) {
++            return mapping;
++        }
++    }
++
++    auto cnode = config_tree.child("input")->child("gamepad_mappings");
++    cnode->update_from_struct(&g_config);
++    cnode->free_allocations(&g_config);
++    cnode->children.push_back(*cnode->array_item_type);
++    auto &e = cnode->children.back();
++    e.child("gamepad_id")->set_string(std::string(guid));
++    cnode->store_to_struct(&g_config);
++
++    return &g_config.input
++                .gamepad_mappings[g_config.input.gamepad_mappings_count - 1];
++}
+diff --git a/ui/xemu.c b/ui/xemu.c
+index b06e19eb1c7..4dbd779bdaf 100644
+--- a/ui/xemu.c
++++ b/ui/xemu.c
+@@ -669,8 +669,10 @@ void sdl2_poll_events(struct sdl2_console *scon)
+     xemu_hud_should_capture_kbd_mouse(&kbd, &mouse);
+ 
+     while (SDL_PollEvent(ev)) {
+-        xemu_input_process_sdl_events(ev);
++        // HUD must process events first so that if a controller is detached,
++        // a latent rebind request can cancel before the state is freed
+         xemu_hud_process_sdl_events(ev);
++        xemu_input_process_sdl_events(ev);
+ 
+         switch (ev->type) {
+         case SDL_KEYDOWN:
+diff --git a/ui/xui/input-manager.cc b/ui/xui/input-manager.cc
+index 786b54b176e..5f9de128fce 100644
+--- a/ui/xui/input-manager.cc
++++ b/ui/xui/input-manager.cc
+@@ -1,6 +1,7 @@
+-#include "common.hh"
++#include "ui/xui/main-menu.hh"
+ #include "input-manager.hh"
+ #include "../xemu-input.h"
++#include "common.hh"
+ 
+ InputManager g_input_mgr;
+ 
+@@ -18,14 +19,18 @@ void InputManager::Update()
+     m_buttons = 0;
+     int16_t axis[CONTROLLER_AXIS__COUNT] = {0};
+ 
+-    ControllerState *iter;
+-    QTAILQ_FOREACH(iter, &available_controllers, entry) {
+-        if (iter->type != INPUT_DEVICE_SDL_GAMECONTROLLER) continue;
+-        m_buttons |= iter->buttons;
+-        // We simply take any axis that is >10 % activation
+-        for (int i = 0; i < CONTROLLER_AXIS__COUNT; i++) {
+-            if ((iter->axis[i] > 3276) || (iter->axis[i] < -3276)) {
+-                axis[i] = iter->axis[i];
++    // If we are rebinding a controller, prevent navigation
++    if (!g_main_menu.IsInputRebinding()) {
++        ControllerState *iter;
++        QTAILQ_FOREACH (iter, &available_controllers, entry) {
++            if (iter->type != INPUT_DEVICE_SDL_GAMECONTROLLER)
++                continue;
++            m_buttons |= iter->buttons;
++            // We simply take any axis that is >10 % activation
++            for (int i = 0; i < CONTROLLER_AXIS__COUNT; i++) {
++                if ((iter->axis[i] > 3276) || (iter->axis[i] < -3276)) {
++                    axis[i] = iter->axis[i];
++                }
+             }
+         }
+     }
+diff --git a/ui/xui/main-menu.cc b/ui/xui/main-menu.cc
+index 75b88cafb6e..b7f296087a1 100644
+--- a/ui/xui/main-menu.cc
++++ b/ui/xui/main-menu.cc
+@@ -48,6 +48,9 @@ MainMenuScene g_main_menu;
+ 
+ MainMenuTabView::~MainMenuTabView() {}
+ void MainMenuTabView::Draw() {}
++void MainMenuTabView::Hide()
++{
++}
+ 
+ void MainMenuGeneralView::Draw()
+ {
+@@ -75,6 +78,24 @@ void MainMenuGeneralView::Draw()
+     //        "Limit DVD/HDD throughput to approximate Xbox load times");
+ }
+ 
++bool MainMenuInputView::ConsumeRebindEvent(SDL_Event *event)
++{
++    if (!rebinding)
++        return false;
++
++    auto [consume, cancel] = rebinding->ConsumeRebindEvent(event);
++    if (cancel) {
++        rebinding = nullptr;
++    }
++
++    return consume;
++}
++
++bool MainMenuInputView::IsInputRebinding()
++{
++    return rebinding != nullptr;
++}
++
+ void MainMenuInputView::Draw()
+ {
+     SectionTitle("Controllers");
+@@ -140,6 +161,7 @@ void MainMenuInputView::Draw()
+ 
+         if (activated) {
+             active = i;
++            rebinding = nullptr;
+         }
+ 
+         uint32_t port_color = 0xafafafff;
+@@ -238,7 +260,7 @@ void MainMenuInputView::Draw()
+         device_selected = true;
+         RenderController(0, 0, 0x81dc8a00, 0x0f0f0f00, bound_state);
+     } else {
+-        static ControllerState state = { 0 };
++        static ControllerState state{};
+         RenderController(0, 0, 0x1f1f1f00, 0x0f0f0f00, &state);
+     }
+ 
+@@ -439,6 +461,38 @@ void MainMenuInputView::Draw()
+         ImGui::Columns(1);
+     }
+ 
++    SectionTitle("Mapping");
++
++    float p = ImGui::GetFrameHeight() * 0.3;
++    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(p, p));
++    if (ImGui::BeginTable("input_remap_tbl", 2,
++                          ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders)) {
++        ImGui::TableSetupColumn("Emulated Input");
++        ImGui::TableSetupColumn("Host Input");
++        ImGui::TableHeadersRow();
++
++        PopulateTableController(bound_state);
++
++        ImGui::EndTable();
++    }
++    ImGui::PopStyleVar();
++
++    if (bound_state && bound_state->type == INPUT_DEVICE_SDL_GAMECONTROLLER) {
++        Toggle("Enable Rumble", &bound_state->controller_map->enable_rumble);
++        Toggle("Invert Left X Axis",
++               &bound_state->controller_map->controller_mapping
++                    .invert_axis_left_x);
++        Toggle("Invert Left Y Axis",
++               &bound_state->controller_map->controller_mapping
++                    .invert_axis_left_y);
++        Toggle("Invert Right X Axis",
++               &bound_state->controller_map->controller_mapping
++                    .invert_axis_right_x);
++        Toggle("Invert Right Y Axis",
++               &bound_state->controller_map->controller_mapping
++                    .invert_axis_right_y);
++    }
++
+     SectionTitle("Options");
+     Toggle("Auto-bind controllers", &g_config.input.auto_bind,
+            "Bind newly connected controllers to any open port");
+@@ -447,6 +501,155 @@ void MainMenuInputView::Draw()
+            "Capture even if window is unfocused (requires restart)");
+ }
+ 
++void MainMenuInputView::Hide()
++{
++    rebinding = nullptr;
++}
++
++void MainMenuInputView::PopulateTableController(ControllerState *state)
++{
++    if (!state)
++        return;
++
++    static const char *kbd_map[25] = {
++        "A",
++        "B",
++        "X",
++        "Y",
++        "DPad Left",
++        "DPad Up",
++        "DPad Right",
++        "DPad Down",
++        "Back",
++        "Start",
++        "White",
++        "Black",
++        "Left Stick Button",
++        "Right Stick Button",
++        "Guide",
++        "Left Stick Up",
++        "Left Stick Left",
++        "Left Stick Right",
++        "Left Stick Down",
++        "Left Trigger",
++        "Right Stick Up",
++        "Right Stick Left",
++        "Right Stick Right",
++        "Right Stick Down",
++        "Right Trigger",
++    };
++
++    static const char *gamepad_map[21] = {
++        "A",
++        "B",
++        "X",
++        "Y",
++        "Back",
++        "Guide",
++        "Start",
++        "Left Stick Button",
++        "Right Stick Button",
++        "White",
++        "Black",
++        "DPad Up",
++        "DPad Down",
++        "DPad Left",
++        "DPad Right",
++        "Left Stick Axis X",
++        "Left Stick Axis Y",
++        "Right Stick Axis X",
++        "Right Stick Axis Y",
++        "Left Trigger Axis",
++        "Right Trigger Axis",
++    };
++
++    bool is_keyboard = state->type == INPUT_DEVICE_SDL_KEYBOARD;
++    int table_rows = is_keyboard ? 25 : 21;
++    const char **table_row_entries = is_keyboard ? kbd_map : gamepad_map;
++    for (int i = 0; i < table_rows; ++i) {
++        ImGui::TableNextRow();
++
++        ImGui::TableSetColumnIndex(0);
++        ImGui::Text("%s", table_row_entries[i]);
++
++        const char *remap_button_text = "Invalid";
++        if (is_keyboard) {
++            int keycode = *(g_keyboard_scancode_map[i]);
++            if (keycode != SDL_SCANCODE_UNKNOWN) {
++                remap_button_text =
++                    SDL_GetScancodeName(static_cast<SDL_Scancode>(keycode));
++            }
++        } else {
++            if (i < 15) {
++                int *button_map[15] = {
++                    &state->controller_map->controller_mapping.a,
++                    &state->controller_map->controller_mapping.b,
++                    &state->controller_map->controller_mapping.x,
++                    &state->controller_map->controller_mapping.y,
++                    &state->controller_map->controller_mapping.back,
++                    &state->controller_map->controller_mapping.guide,
++                    &state->controller_map->controller_mapping.start,
++                    &state->controller_map->controller_mapping.lstick_btn,
++                    &state->controller_map->controller_mapping.rstick_btn,
++                    &state->controller_map->controller_mapping.lshoulder,
++                    &state->controller_map->controller_mapping.rshoulder,
++                    &state->controller_map->controller_mapping.dpad_up,
++                    &state->controller_map->controller_mapping.dpad_down,
++                    &state->controller_map->controller_mapping.dpad_left,
++                    &state->controller_map->controller_mapping.dpad_right,
++                };
++
++                int button = *(button_map[i]);
++                if (button != SDL_CONTROLLER_BUTTON_INVALID) {
++                    remap_button_text = SDL_GameControllerGetStringForButton(
++                        static_cast<SDL_GameControllerButton>(button));
++                }
++            } else {
++                int *axis_map[6] = {
++                    &state->controller_map->controller_mapping.axis_left_x,
++                    &state->controller_map->controller_mapping.axis_left_y,
++                    &state->controller_map->controller_mapping.axis_right_x,
++                    &state->controller_map->controller_mapping.axis_right_y,
++                    &state->controller_map->controller_mapping
++                         .axis_trigger_left,
++                    &state->controller_map->controller_mapping
++                         .axis_trigger_right,
++                };
++                int axis = *(axis_map[i - 15]);
++                if (axis != SDL_CONTROLLER_AXIS_INVALID) {
++                    remap_button_text = SDL_GameControllerGetStringForAxis(
++                        static_cast<SDL_GameControllerAxis>(axis));
++                }
++            }
++        }
++
++        ImGui::TableSetColumnIndex(1);
++        if (rebinding && rebinding->GetTableRow() == i) {
++            ImGui::Text("Press a key to rebind");
++        } else {
++            ImGui::PushID(i);
++            float tw = ImGui::CalcTextSize(remap_button_text).x;
++            auto &style = ImGui::GetStyle();
++            float max_button_width =
++                tw + g_viewport_mgr.m_scale * 2 * style.FramePadding.x;
++
++            float min_button_width = ImGui::GetColumnWidth(1) / 2;
++            float button_width = std::max(min_button_width, max_button_width);
++
++            if (ImGui::Button(remap_button_text, ImVec2(button_width, 0))) {
++                if (is_keyboard) {
++                    rebinding =
++                        std::make_unique<ControllerKeyboardRebindingMap>(i);
++                } else {
++                    rebinding = std::make_unique<ControllerGamepadRebindingMap>(
++                        i, state);
++                }
++            }
++            ImGui::PopID();
++        }
++    }
++}
++
+ void MainMenuDisplayView::Draw()
+ {
+     SectionTitle("Quality");
+@@ -1464,6 +1667,7 @@ void MainMenuScene::Show()
+ 
+ void MainMenuScene::Hide()
+ {
++    m_views[m_current_view_index]->Hide();
+     m_background.Hide();
+     m_nav_control_view.Hide();
+     m_animation.EaseOut();
+@@ -1476,6 +1680,7 @@ bool MainMenuScene::IsAnimating()
+ 
+ void MainMenuScene::SetNextViewIndex(int i)
+ {
++    m_views[m_current_view_index]->Hide();
+     m_next_view_index = i % m_tabs.size();
+     g_config.general.last_viewed_menu_index = i;
+ }
+@@ -1515,6 +1720,16 @@ void MainMenuScene::UpdateAboutViewConfigInfo()
+     m_about_view.UpdateConfigInfoText();
+ }
+ 
++bool MainMenuScene::ConsumeRebindEvent(SDL_Event *event)
++{
++    return m_input_view.ConsumeRebindEvent(event);
++}
++
++bool MainMenuScene::IsInputRebinding()
++{
++    return m_input_view.IsInputRebinding();
++}
++
+ bool MainMenuScene::Draw()
+ {
+     m_animation.Step();
+diff --git a/ui/xui/main-menu.hh b/ui/xui/main-menu.hh
+index bce3927333c..137e20f4ae5 100644
+--- a/ui/xui/main-menu.hh
++++ b/ui/xui/main-menu.hh
+@@ -17,14 +17,16 @@
+ // along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ //
+ #pragma once
+-#include <string>
+-#include <vector>
+-#include <memory>
++#include "ui/xemu-input.h"
++#include "../xemu-controllers.h"
++#include "../xemu-snapshots.h"
+ #include "common.hh"
+-#include "widgets.hh"
+-#include "scene.hh"
+ #include "scene-components.hh"
+-#include "../xemu-snapshots.h"
++#include "scene.hh"
++#include "widgets.hh"
++#include <memory>
++#include <string>
++#include <vector>
+ 
+ extern "C" {
+ #include "net/pcap.h"
+@@ -36,6 +38,7 @@ class MainMenuTabView
+ public:
+     virtual ~MainMenuTabView();
+     virtual void Draw();
++    virtual void Hide();
+ };
+ 
+ class MainMenuGeneralView : public virtual MainMenuTabView
+@@ -47,7 +50,15 @@ public:
+ class MainMenuInputView : public virtual MainMenuTabView
+ {
+ public:
++    std::unique_ptr<RebindingMap> rebinding;
++    MainMenuInputView() : rebinding{ nullptr }
++    {
++    }
++    bool ConsumeRebindEvent(SDL_Event *event);
++    bool IsInputRebinding();
+     void Draw() override;
++    void Hide() override;
++    void PopulateTableController(ControllerState *state);
+ };
+ 
+ class MainMenuDisplayView : public virtual MainMenuTabView
+@@ -193,6 +204,8 @@ public:
+     void SetNextViewIndex(int i);
+     void HandleInput();
+     void UpdateAboutViewConfigInfo();
++    bool ConsumeRebindEvent(SDL_Event *event);
++    bool IsInputRebinding();
+     bool Draw() override;
+ };
+ 
+diff --git a/ui/xui/main.cc b/ui/xui/main.cc
+index fd38aa4e7bb..70fc806689d 100644
+--- a/ui/xui/main.cc
++++ b/ui/xui/main.cc
+@@ -170,6 +170,10 @@ void xemu_hud_cleanup(void)
+ 
+ void xemu_hud_process_sdl_events(SDL_Event *event)
+ {
++    if (g_main_menu.ConsumeRebindEvent(event)) {
++        return;
++    }
++
+     ImGui_ImplSDL2_ProcessEvent(event);
+ }
+ 

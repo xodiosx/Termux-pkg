@@ -1,0 +1,58 @@
+--- xemu/block/file-posix.c	2025-01-09 10:55:52.339957948 +0530
++++ xemu.mod/block/file-posix.c	2025-01-09 16:16:22.307950612 +0530
+@@ -2163,31 +2163,36 @@
+     uint64_t bytes = aiocb->aio_nbytes;
+     off_t in_off = aiocb->aio_offset;
+     off_t out_off = aiocb->copy_range.aio_offset2;
++    char buffer[8192]; // Use a buffer for data transfer.
+ 
+-    while (bytes) {
+-        ssize_t ret = copy_file_range(aiocb->aio_fildes, &in_off,
+-                                      aiocb->copy_range.aio_fd2, &out_off,
+-                                      bytes, 0);
+-        trace_file_copy_file_range(aiocb->bs, aiocb->aio_fildes, in_off,
+-                                   aiocb->copy_range.aio_fd2, out_off, bytes,
+-                                   0, ret);
+-        if (ret == 0) {
+-            /* No progress (e.g. when beyond EOF), let the caller fall back to
+-             * buffer I/O. */
++    while (bytes > 0) {
++        size_t to_read = bytes > sizeof(buffer) ? sizeof(buffer) : bytes;
++
++        ssize_t read_bytes = pread(aiocb->aio_fildes, buffer, to_read, in_off);
++        if (read_bytes < 0) {
++            if (errno == EINTR) {
++                continue; // Retry on interrupted system call.
++            }
++            return -errno; // Return negative errno for other errors.
++        }
++        if (read_bytes == 0) {
++            // Reached EOF, let the caller fall back to buffer I/O.
+             return -ENOSPC;
+         }
+-        if (ret < 0) {
+-            switch (errno) {
+-            case ENOSYS:
+-                return -ENOTSUP;
+-            case EINTR:
+-                continue;
+-            default:
+-                return -errno;
++
++        ssize_t written_bytes = pwrite(aiocb->copy_range.aio_fd2, buffer, read_bytes, out_off);
++        if (written_bytes < 0) {
++            if (errno == EINTR) {
++                continue; // Retry on interrupted system call.
+             }
++            return -errno; // Return negative errno for other errors.
+         }
+-        bytes -= ret;
++
++        in_off += written_bytes;
++        out_off += written_bytes;
++        bytes -= written_bytes;
+     }
++
+     return 0;
+ }
+ 

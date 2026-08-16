@@ -1,0 +1,29 @@
+--- xemu/crypto/random-platform.c	2025-01-09 10:55:52.383957948 +0530
++++ xemu.mod/crypto/random-platform.c	2025-01-09 15:47:31.967951272 +0530
+@@ -27,7 +27,7 @@
+ #include <wincrypt.h>
+ static HCRYPTPROV hCryptProv;
+ #else
+-# ifdef CONFIG_GETRANDOM
++# if defined(CONFIG_GETRANDOM) && !defined(__ANDROID__)
+ #  include <sys/random.h>
+ # endif
+ /* This is -1 for getrandom(), or a file handle for /dev/{u,}random.  */
+@@ -44,7 +44,7 @@
+         return -1;
+     }
+ #else
+-# ifdef CONFIG_GETRANDOM
++# if defined(CONFIG_GETRANDOM) && !defined(__ANDROID__)
+     if (getrandom(NULL, 0, 0) == 0) {
+         /* Use getrandom() */
+         fd = -1;
+@@ -75,7 +75,7 @@
+         return -1;
+     }
+ #else
+-# ifdef CONFIG_GETRANDOM
++# if defined(CONFIG_GETRANDOM) && !defined(__ANDROID__)
+     if (likely(fd < 0)) {
+         while (1) {
+             ssize_t got = getrandom(buf, buflen, 0);
