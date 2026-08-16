@@ -16,8 +16,10 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 --enable-vulkan
 --enable-opengl
 --enable-opengles
+--enable-alsa
 --enable-pulse
 --enable-x11
+--enable-sdl2
 "
 
 termux_step_pre_configure() {
@@ -33,12 +35,13 @@ termux_step_pre_configure() {
 	# Force ALSA to use Termux's headers and library
 	export ALSA_CFLAGS="-I$TERMUX_PREFIX/include/alsa"
 	export ALSA_LIBS="-L$TERMUX_PREFIX/lib -lasound"
-}
 
-termux_step_configure() {
-	# Override the default configure step to avoid the unsupported --disable-dependency-tracking
-	./configure \
-		--prefix="$TERMUX_PREFIX" \
-		--host="$TERMUX_HOST_PLATFORM" \
-		$TERMUX_PKG_EXTRA_CONFIGURE_ARGS
+	# Patch configure script to accept --disable-dependency-tracking (added by Termux)
+	sed -i '/^[[:space:]]*\*)/i\
+	--disable-dependency-tracking) ;;\
+	' configure
+
+	# Replace hardcoded /tmp with Termux's prefix/tmp in all .c and .h files
+	find . -type f \( -name "*.c" -o -name "*.h" \) -exec \
+		sed -i 's|"/tmp"|"'"$TERMUX_PREFIX"'/tmp"|g' {} +
 }
