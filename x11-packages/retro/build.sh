@@ -30,7 +30,7 @@ termux_step_configure() {
 		--enable-vulkan \
 		--enable-opengl \
 		--enable-opengles \
-		--enable-alsa \
+		--disable-alsa \
 		--enable-pulse \
 		--enable-x11 \
 		--enable-sdl2
