@@ -7,7 +7,7 @@ Subject: [PATCH] ui: Support changing controller/keyboard mappings
  config_spec.yml         |  85 ++++++++++++++
  ui/meson.build          |   1 +
  ui/xemu-controllers.cc  | 102 ++++++++++++++++
- ui/xemu-controllers.h   |  82 +++++++++++++
+ ui/xemu-controllers.h   |  83 +++++++++++++
  ui/xemu-input.c         | 251 ++++++++++++++++++++++++++++------------
  ui/xemu-input.h         |  11 +-
  ui/xemu-settings.cc     |  22 ++++
@@ -16,7 +16,7 @@ Subject: [PATCH] ui: Support changing controller/keyboard mappings
  ui/xui/main-menu.cc     | 217 +++++++++++++++++++++++++++++++++-
  ui/xui/main-menu.hh     |  25 +++-
  ui/xui/main.cc          |   4 +
- 13 files changed, 735 insertions(+), 94 deletions(-)
+ 13 files changed, 736 insertions(+), 94 deletions(-)
  create mode 100644 ui/xemu-controllers.cc
  create mode 100644 ui/xemu-controllers.h
 
@@ -241,7 +241,7 @@ new file mode 100644
 index 00000000000..1cfb2cadb88
 --- /dev/null
 +++ b/ui/xemu-controllers.h
-@@ -0,0 +1,82 @@
+@@ -0,0 +1,83 @@
 +/*
 + * xemu Settings Management
 + *
@@ -269,6 +269,7 @@ index 00000000000..1cfb2cadb88
 +#include <SDL.h>
 +
 +#ifdef __cplusplus
++#include <utility>
 +
 +struct RebindingMap {
 +    // Returns [consume, cancel]:
@@ -1141,3 +1142,5 @@ index fd38aa4e7bb..70fc806689d 100644
      ImGui_ImplSDL2_ProcessEvent(event);
  }
  
+-- 
+2.34.1
