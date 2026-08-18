@@ -36,7 +36,8 @@ termux_step_pre_configure() {
 	export ALSA_CFLAGS="-I$TERMUX_PREFIX/include/alsa"
 	export ALSA_LIBS="-L$TERMUX_PREFIX/lib -lasound"
 
-	# Patch configure script to accept --disable-dependency-tracking
+	# Patch configure script to accept --disable-dependency-tracking (added by Termux)
+	# Insert a new case before the default '*)' branch.
 	sed -i '/^[[:space:]]*\*)/i\
 	--disable-dependency-tracking) ;;\
 	' configure
