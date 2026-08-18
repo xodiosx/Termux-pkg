@@ -39,7 +39,7 @@ termux_step_pre_configure() {
 	if [ $TERMUX_ARCH = "aarch64" ]; then
 		rm -f $TERMUX_PKG_BUILDDIR/_lib
 		mkdir -p $TERMUX_PKG_BUILDDIR/_lib
-
+		sed -i '/^#ifdef __cplusplus$/a #include <utility>' ui/xemu-controllers.h
 		cd $TERMUX_PKG_BUILDDIR
 		mkdir -p _setjmp-aarch64
 		pushd _setjmp-aarch64
