@@ -2,7 +2,7 @@ TERMUX_PKG_HOMEPAGE=https://www.retroarch.com/
 TERMUX_PKG_DESCRIPTION="Frontend for emulators, game engines and media players"
 TERMUX_PKG_LICENSE="GPL-3.0"
 TERMUX_PKG_MAINTAINER="@termux"
-TERMUX_PKG_VERSION="1.19.1"
+TERMUX_PKG_VERSION="1.22.2"
 TERMUX_PKG_REVISION=1
 TERMUX_PKG_SRCURL="https://github.com/libretro/RetroArch/archive/v${TERMUX_PKG_VERSION}.tar.gz"
 TERMUX_PKG_SHA256="504a3a8a6e5861eb43a61be8339f61183e7ea940c1ff68ac2a2f57d35c67f8ff"
@@ -35,14 +35,12 @@ termux_step_pre_configure() {
 	# Force ALSA to use Termux's headers and library
 	export ALSA_CFLAGS="-I$TERMUX_PREFIX/include/alsa"
 	export ALSA_LIBS="-L$TERMUX_PREFIX/lib -lasound"
+}
 
-	# Patch configure script to accept --disable-dependency-tracking (added by Termux)
-	# Insert a new case before the default '*)' branch.
-	sed -i '/^[[:space:]]*\*)/i\
-	--disable-dependency-tracking) ;;\
-	' configure
-
-	# Replace hardcoded /tmp with Termux's prefix/tmp
-	find . -type f \( -name "*.c" -o -name "*.h" \) -exec \
-		sed -i 's|"/tmp"|"'"$TERMUX_PREFIX"'/tmp"|g' {} +
+termux_step_configure() {
+	# Manually run configure to avoid the unwanted --disable-dependency-tracking
+	./configure \
+		--prefix="$TERMUX_PREFIX" \
+		--host="$TERMUX_HOST_PLATFORM" \
+		$TERMUX_PKG_EXTRA_CONFIGURE_ARGS
 }
