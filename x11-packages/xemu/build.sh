@@ -3,7 +3,7 @@ TERMUX_PKG_DESCRIPTION="A free and open-source emulator for the original Xbox co
 TERMUX_PKG_LICENSE="GPL-2.0"
 TERMUX_PKG_MAINTAINER="@George-Seven"
 _COMMIT=956ef0b2ebe50896b7801d4f5ea621e431d9e3ae
-TERMUX_PKG_VERSION=0.8.5
+TERMUX_PKG_VERSION=0.8.8
 TERMUX_PKG_REVISION=1
 TERMUX_PKG_DEPENDS="at-spi2-core, brotli, fontconfig, freetype, fribidi, gdk-pixbuf, glib, harfbuzz, libandroid-shmem, libandroid-support, libbz2, libc++, libcairo, libdecor, libepoxy, libexpat, libffi, libgraphite, libiconv, libjpeg-turbo, libpcap, libpixman, libpng, libsamplerate, libslirp, libwayland, libx11, libxau, libxcb, libxcomposite, libxcursor, libxdamage, libxdmcp, libdecor, libxext, libxfixes, libxi, libxinerama, libxkbcommon, libxrandr, libxrender, libxss, mesa, openssl, pango, pcre2, sdl2, zlib"
 TERMUX_PKG_BUILD_DEPENDS="gtk3, libepoxy, libglvnd-dev, libpcap, libpixman, libsamplerate, libslirp, libtasn1, sdl2, vulkan-headers, xorgproto"
@@ -39,7 +39,7 @@ termux_step_pre_configure() {
 	if [ $TERMUX_ARCH = "aarch64" ]; then
 		rm -f $TERMUX_PKG_BUILDDIR/_lib
 		mkdir -p $TERMUX_PKG_BUILDDIR/_lib
-		sed -i '/^#ifdef __cplusplus$/a #include <utility>' ui/xemu-controllers.h
+		#sed -i '/^#ifdef __cplusplus$/a #include <utility>' ui/xemu-controllers.h
 		cd $TERMUX_PKG_BUILDDIR
 		mkdir -p _setjmp-aarch64
 		pushd _setjmp-aarch64
