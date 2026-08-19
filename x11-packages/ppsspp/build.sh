@@ -9,12 +9,8 @@ TERMUX_PKG_DEPENDS="libcurl, libpng, miniupnpc, zlib, libzip, libsnappy, ffmpeg,
 TERMUX_PKG_BUILD_DEPENDS="mesa-dev, libglvnd-dev, vulkan-headers, rapidjson, spirv-headers, spirv-tools"
 TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
+-DCMAKE_SYSTEM_NAME=Linux
 -DUSE_SYSTEM_FFMPEG=ON
--DUSE_SYSTEM_LIBZIP=ON
--DUSE_SYSTEM_SNAPPY=ON
 -DUSING_GLES2=ON
--DOPENXR=OFF
--DUSE_VULKAN=ON
--DUSE_SDL2=ON
 -DBUILD_TESTING=OFF
 "
