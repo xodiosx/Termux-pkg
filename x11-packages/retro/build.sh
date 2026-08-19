@@ -24,7 +24,10 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_step_pre_configure() {
-	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
+	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+	export CFLAGS="-I$TERMUX_PREFIX/include"
+	export CPPFLAGS="-I$TERMUX_PREFIX/include"
+	export LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
 }
 
 termux_step_configure() {
