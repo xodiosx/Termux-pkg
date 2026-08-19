@@ -1,7 +1,7 @@
 TERMUX_PKG_HOMEPAGE=https://www.ppsspp.org/
 TERMUX_PKG_DESCRIPTION="PlayStation Portable emulator"
 TERMUX_PKG_LICENSE="GPL-2.0"
-TERMUX_PKG_MAINTAINER="@termux-user-repository"
+TERMUX_PKG_MAINTAINER="@termux"
 TERMUX_PKG_VERSION="1.20.4"
 TERMUX_PKG_SRCURL="https://github.com/hrydgard/ppsspp/archive/refs/tags/v${TERMUX_PKG_VERSION}.tar.gz"
 TERMUX_PKG_SHA256=d09ceb1cb041319424d72ba20bd865a04208b903247dd66ec6a4a7222e1b6f3f
