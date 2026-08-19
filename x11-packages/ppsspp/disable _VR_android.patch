@@ -1,0 +1,8 @@
+--- a/Common/VR/PPSSPPVR.cpp
++++ b/Common/VR/PPSSPPVR.cpp
+@@ -145,7 +145,7 @@
+-#if defined(__ANDROID__)
++#if defined(PPSSPP_PLATFORM_ANDROID)
+     // Android/Oculus VR code
+     ...
+ #endif
