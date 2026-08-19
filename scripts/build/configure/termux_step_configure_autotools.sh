@@ -102,7 +102,6 @@ termux_step_configure_autotools() {
 	# NOTE: We do not want to quote AVOID_GNULIB as we want word expansion.
 	# shellcheck disable=SC2086
 	env $AVOID_GNULIB "$TERMUX_PKG_SRCDIR/configure" \
-		--disable-dependency-tracking \
 		--prefix="$TERMUX_PREFIX" \
 		--libdir="$TERMUX__PREFIX__LIB_DIR" \
 		--includedir="$TERMUX__PREFIX__INCLUDE_DIR" \
