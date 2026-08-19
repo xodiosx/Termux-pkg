@@ -25,13 +25,5 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_step_pre_configure() {
-	# Ensure pkg-config is found
-	export PATH="$TERMUX_PREFIX/bin:$PATH"
-	export PKG_CONFIG="$TERMUX_PREFIX/bin/pkg-config"
-	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$TERMUX_PREFIX/share/pkgconfig"
-
-	# Add Android macro and include paths
-	CFLAGS+=" -I$TERMUX_PREFIX/include -D_ANDROID_"
-	CPPFLAGS+=" -I$TERMUX_PREFIX/include -D_ANDROID_"
 	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
 }
