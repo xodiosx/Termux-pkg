@@ -1,15 +1,15 @@
 TERMUX_PKG_HOMEPAGE=https://www.retroarch.com/
 TERMUX_PKG_DESCRIPTION="Frontend for emulators, game engines and media players"
 TERMUX_PKG_LICENSE="GPL-3.0"
-TERMUX_PKG_MAINTAINER="@termux"
+TERMUX_PKG_MAINTAINER="@termux-user-repository"
 TERMUX_PKG_VERSION="1.19.1"
 TERMUX_PKG_REVISION=1
+TERMUX_PKG_EXCLUDED_ARCHES="arm, i686, x86_64"
 TERMUX_PKG_SRCURL="https://github.com/libretro/RetroArch/archive/v${TERMUX_PKG_VERSION}.tar.gz"
 TERMUX_PKG_SHA256="504a3a8a6e5861eb43a61be8339f61183e7ea940c1ff68ac2a2f57d35c67f8ff"
 TERMUX_PKG_DEPENDS="libandroid-shmem, fontconfig, libzip, libx11, libxrandr, libxext, freetype, pulseaudio, sdl2, sdl2-ttf, libglvnd, ffmpeg, libsixel, zlib, libxcb, vulkan-loader"
 TERMUX_PKG_BUILD_DEPENDS="mesa-dev, pkg-config, cmake, vulkan-headers, autoconf, automake, libtool"
 TERMUX_PKG_BUILD_IN_SRC=true
-
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 --disable-ffmpeg
 --enable-vulkan
@@ -24,7 +24,9 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_step_pre_configure() {
-	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+	if [[ "$TERMUX_ON_DEVICE_BUILD" == "false" ]]; then
+		termux_error_exit "This package doesn't support cross-compiling."
+	fi
 	export CFLAGS="-I$TERMUX_PREFIX/include"
 	export CPPFLAGS="-I$TERMUX_PREFIX/include"
 	export LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
