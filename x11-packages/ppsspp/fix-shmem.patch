@@ -1,0 +1,39 @@
+diff --git a/Common/MemArenaPosix.cpp b/Common/MemArenaPosix.cpp
+index a413f4eaf2..964be74594 100644
+--- a/Common/MemArenaPosix.cpp
++++ b/Common/MemArenaPosix.cpp
+@@ -17,6 +17,11 @@
+ 
+ #include "ppsspp_config.h"
+ 
++#if defined(__ANDROID__)
++// Bionic has no POSIX shared memory; memfd_create stands in for it.
++#include <sys/syscall.h>
++#endif
++
+ #if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__) && !PPSSPP_PLATFORM(SWITCH)
+ 
+ #include <sys/mman.h>
+@@ -61,14 +66,22 @@ bool MemArena::GrabMemSpace(size_t size) {
+ 	for (int i = 0; i < 256; ++i) {
+ 		snprintf(ram_temp_filename, sizeof(ram_temp_filename), "/ppsspp_%d.ram", i);
+ 		// This opens atomically, so will fail if another process is starting.
++#if defined(__ANDROID__)
++		// memfd_create via syscall(): Bionic only declares the wrapper at
++		// API 30 and above. The object is unnamed, so it never collides.
++		fd = (int)syscall(SYS_memfd_create, ram_temp_filename, 0u);
++#else
+ 		fd = shm_open(ram_temp_filename, O_RDWR | O_CREAT | O_EXCL, mode);
++#endif
+ 		if (fd >= 0) {
+ 			INFO_LOG(Log::MemMap, "Got shm file: %s", ram_temp_filename);
+ 			is_shm = true;
+ 			// Our handle persists per POSIX, so no need to keep it around.
++#if !defined(__ANDROID__)
+ 			if (shm_unlink(ram_temp_filename) != 0) {
+ 				WARN_LOG(Log::MemMap, "Failed to shm_unlink %s", ram_temp_file.c_str());
+ 			}
++#endif
+ 			break;
+ 		}
+ 	}
