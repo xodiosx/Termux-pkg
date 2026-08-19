@@ -14,3 +14,13 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DUSING_GLES2=ON
 -DBUILD_TESTING=OFF
 "
+termux_step_pre_configure() {
+	cd "$TERMUX_PKG_SRCDIR"
+	sed -i 's/#elif defined(__ANDROID__)/#elif 0/' ppsspp_config.h
+	sed -i 's/#if defined(__ANDROID__)/#if 0/g' Common/GPU/OpenGL/GLFeatures.cpp
+	sed -i 's/#if defined(__ANDROID__)/#if 0/g' Common/GPU/Vulkan/VulkanLoader.h
+	sed -i 's/#if defined(__ANDROID__)/#if 0/g' Common/GPU/Vulkan/VulkanLoader.cpp
+	sed -i 's/#if defined(__ANDROID__)/#if 0/g' Common/GPU/Vulkan/VulkanContext.cpp
+	sed -i 's/#elif defined(__ANDROID__)/#elif 1/g' Core/Instance.cpp
+	sed -i 's/#if defined(__ANDROID__)/#if 0/g' Common/VR/PPSSPPVR.cpp
+}
