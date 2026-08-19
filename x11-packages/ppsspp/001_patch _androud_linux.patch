@@ -1,0 +1,10 @@
+--- a/ppsspp_config.h
++++ b/ppsspp_config.h
+@@ -118,7 +118,6 @@
+ #elif defined(__SWITCH__)
+     #define PPSSPP_PLATFORM_SWITCH 1
+ #elif defined(__ANDROID__)
+-    #define PPSSPP_PLATFORM_ANDROID 1
+     #define PPSSPP_PLATFORM_LINUX 1
+ #elif defined(__linux__)
+     #define PPSSPP_PLATFORM_LINUX 1
