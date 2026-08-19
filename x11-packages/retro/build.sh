@@ -26,13 +26,18 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 
 termux_step_pre_configure() {
 	# Ensure pkg-config is found
+	export PATH="$TERMUX_PREFIX/bin:$PATH"
 	export PKG_CONFIG="$TERMUX_PREFIX/bin/pkg-config"
 	export PKG_CONFIG_PATH="$TERMUX_PREFIX/lib/pkgconfig:$TERMUX_PREFIX/share/pkgconfig"
 
-	# Compiler / linker flags – include _ANDROID_ for Android‑specific code paths
+	# Add Android macro and include paths
 	CFLAGS+=" -I$TERMUX_PREFIX/include -D_ANDROID_"
 	CPPFLAGS+=" -I$TERMUX_PREFIX/include -D_ANDROID_"
 	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
+
+	# Force SDL2 detection to use Termux paths
+	export SDL2_CFLAGS="-I$TERMUX_PREFIX/include/SDL2"
+	export SDL2_LIBS="-L$TERMUX_PREFIX/lib -lSDL2"
 
 	# Replace hardcoded /tmp with Termux's tmp
 	find . -type f \( -name "*.c" -o -name "*.h" \) -exec \
@@ -40,7 +45,7 @@ termux_step_pre_configure() {
 }
 
 termux_step_configure() {
-	# Run configure manually to avoid the unwanted --disable-dependency-tracking
+	# Run configure manually – avoids the unwanted --disable-dependency-tracking
 	./configure \
 		--prefix="$TERMUX_PREFIX" \
 		--host="$TERMUX_HOST_PLATFORM" \
