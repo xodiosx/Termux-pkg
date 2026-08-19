@@ -28,5 +28,5 @@ termux_step_pre_configure() {
 }
 
 termux_step_configure() {
-    ./configure --prefix="$TERMUX_PREFIX" $TERMUX_PKG_EXTRA_CONFIGURE_ARGS
+	./configure --prefix="$TERMUX_PREFIX" $TERMUX_PKG_EXTRA_CONFIGURE_ARGS
 }
