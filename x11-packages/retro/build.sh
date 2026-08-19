@@ -34,20 +34,4 @@ termux_step_pre_configure() {
 	CFLAGS+=" -I$TERMUX_PREFIX/include -D_ANDROID_"
 	CPPFLAGS+=" -I$TERMUX_PREFIX/include -D_ANDROID_"
 	LDFLAGS+=" -L$TERMUX_PREFIX/lib -landroid-shmem"
-
-	# Force SDL2 detection to use Termux paths
-	export SDL2_CFLAGS="-I$TERMUX_PREFIX/include/SDL2"
-	export SDL2_LIBS="-L$TERMUX_PREFIX/lib -lSDL2"
-
-	# Replace hardcoded /tmp with Termux's tmp
-	find . -type f \( -name "*.c" -o -name "*.h" \) -exec \
-		sed -i 's|"/tmp"|"'"$TERMUX_PREFIX"'/tmp"|g' {} +
-}
-
-termux_step_configure() {
-	# Run configure manually – avoids the unwanted --disable-dependency-tracking
-	./configure \
-		--prefix="$TERMUX_PREFIX" \
-		--host="$TERMUX_HOST_PLATFORM" \
-		$TERMUX_PKG_EXTRA_CONFIGURE_ARGS
 }
