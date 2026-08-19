@@ -1,10 +1,110 @@
+diff --git a/ppsspp_config.h b/ppsspp_config.h
+index 1111111..2222222 100644
 --- a/ppsspp_config.h
 +++ b/ppsspp_config.h
-@@ -118,7 +118,6 @@
+@@ -118,8 +118,7 @@
  #elif defined(__SWITCH__)
      #define PPSSPP_PLATFORM_SWITCH 1
  #elif defined(__ANDROID__)
 -    #define PPSSPP_PLATFORM_ANDROID 1
-     #define PPSSPP_PLATFORM_LINUX 1
+-    #define PPSSPP_PLATFORM_LINUX 1
++    // Termux native build: treat as Linux, not Android
  #elif defined(__linux__)
      #define PPSSPP_PLATFORM_LINUX 1
+ #else
+diff --git a/Common/GPU/OpenGL/GLFeatures.cpp b/Common/GPU/OpenGL/GLFeatures.cpp
+index 3333333..4444444 100644
+--- a/Common/GPU/OpenGL/GLFeatures.cpp
++++ b/Common/GPU/OpenGL/GLFeatures.cpp
+@@ -401,7 +401,7 @@
+-#if defined(__ANDROID__)
++#if 0
+     // Android-specific OpenGL feature detection
+ #endif
+ 
+@@ -454,7 +454,7 @@
+-#if defined(__ANDROID__)
++#if 0
+     // Another Android-specific block
+ #endif
+diff --git a/Common/GPU/Vulkan/VulkanLoader.h b/Common/GPU/Vulkan/VulkanLoader.h
+index 5555555..6666666 100644
+--- a/Common/GPU/Vulkan/VulkanLoader.h
++++ b/Common/GPU/Vulkan/VulkanLoader.h
+@@ -192,7 +192,7 @@
+-#if defined(__ANDROID__)
++#if 0
+     // Android Vulkan loader declarations
+ #endif
+diff --git a/Common/GPU/Vulkan/VulkanLoader.cpp b/Common/GPU/Vulkan/VulkanLoader.cpp
+index 7777777..8888888 100644
+--- a/Common/GPU/Vulkan/VulkanLoader.cpp
++++ b/Common/GPU/Vulkan/VulkanLoader.cpp
+@@ -190,7 +190,7 @@
+-#if defined(__ANDROID__)
++#if 0
+     // Android Vulkan loader code
+ #endif
+ 
+@@ -348,7 +348,7 @@
+-#if defined(__ANDROID__)
++#if 1
+     // Force this branch (usually non-Android)
+ #endif
+ 
+@@ -501,7 +501,7 @@
+-#elif defined(__ANDROID__)
++#elif 0
+     // Disable Android-specific fallback
+ #endif
+ 
+@@ -750,7 +750,7 @@
+-#elif defined(__ANDROID__)
++#elif 0
+     // Disable another Android fallback
+ #endif
+diff --git a/Common/GPU/Vulkan/VulkanContext.cpp b/Common/GPU/Vulkan/VulkanContext.cpp
+index 9999999..aaaaaaa 100644
+--- a/Common/GPU/Vulkan/VulkanContext.cpp
++++ b/Common/GPU/Vulkan/VulkanContext.cpp
+@@ -153,7 +153,7 @@
+-#elif defined(__ANDROID__)
++#elif 0
+     // Disable Android branch
+ #endif
+ 
+@@ -1061,7 +1061,7 @@
+-#if defined(__ANDROID__)
++#if 0
+     // Disable Android-specific code
+ #endif
+diff --git a/Core/Instance.cpp b/Core/Instance.cpp
+index bbbbbbb..ccccccc 100644
+--- a/Core/Instance.cpp
++++ b/Core/Instance.cpp
+@@ -143,7 +143,7 @@
+-#elif defined(__ANDROID__)
++#elif 1
+     // Bionic lacks shm_open, force fallback
+ #endif
+ 
+@@ -180,7 +180,7 @@
+-#elif defined(__ANDROID__)
++#elif 1
+     // Same fallback
+ #endif
+diff --git a/Common/VR/PPSSPPVR.cpp b/Common/VR/PPSSPPVR.cpp
+index ddddddd..eeeeeee 100644
+--- a/Common/VR/PPSSPPVR.cpp
++++ b/Common/VR/PPSSPPVR.cpp
+@@ -160,6 +160,7 @@
+ // The following function is only needed for Android/Oculus builds
+ void InitVR(JavaVM *vm, jobject activity) {
++#if 0
+     ovrJava java;
+     java.Vm = (JavaVM*)vm;
+     java.ActivityObject = (jobject)activity;
+@@ -180,6 +181,7 @@
+     // ... rest of VR init
++#endif
+ }
