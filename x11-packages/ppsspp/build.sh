@@ -46,14 +46,7 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_step_post_make_install() {
-	# Install the original binary under its native name
-	install -Dm700 "$TERMUX_PKG_BUILDDIR/PPSSPPSDL" \
-	"$TERMUX_PREFIX/bin/PPSSPPSDL"
-
 	# Create a convenience symlink: ppsspp -> PPSSPPSDL
+	cd $TERMUX_PREFIX/bin
 	ln -sf PPSSPPSDL "$TERMUX_PREFIX/bin/ppsspp"
-
-	# Copy assets
-	mkdir -p "$TERMUX_PREFIX/share/ppsspp"
-	cp -r "$TERMUX_PKG_BUILDDIR/assets" "$TERMUX_PREFIX/share/ppsspp/"
 }
