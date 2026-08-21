@@ -45,6 +45,21 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DGOLD=OFF
 "
 
+termux_step_pre_configure() {
+	# Disable `ppsspp`'s Android code for building an APK.
+	find \
+		"$TERMUX_PKG_SRCDIR"/Common/GPU \
+		"$TERMUX_PKG_SRCDIR"/Common/Log.h \
+		"$TERMUX_PKG_SRCDIR"/Common/MsgHandler.h \
+		"$TERMUX_PKG_SRCDIR"/UI \
+		"$TERMUX_PKG_SRCDIR"/ext/naett \
+		"$TERMUX_PKG_SRCDIR"/ppsspp_config.h \
+		-type f -print0 | xargs -0 sed -i \
+		-e 's/\([^A-Za-z0-9_]__ANDROID\)\(__[^A-Za-z0-9_]\)/\1__DISABLING_THIS_BECAUSE_IT_IS_FOR_BUILDING_AN_APK\2/g' \
+		-e 's/\([^A-Za-z0-9_]__ANDROID\)__$/\1_DISABLING_THIS_BECAUSE_IT_IS_FOR_BUILDING_AN_APK__/g'
+}
+
+
 termux_step_post_make_install() {
 	# Create a convenience symlink: ppsspp -> PPSSPPSDL
 	cd $TERMUX_PREFIX/bin
