@@ -45,23 +45,15 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DGOLD=OFF
 "
 
-termux_step_pre_configure() {
-	# owokitty magic (do not call me owokitty in final version comments,
-	# Tomjo2000 doesn't like that and it's probably weird)
-	# this is my way of saying this is too hard to explain in one
-	# paragraph and you are not expected to understand this code
-	# (similar to the patch in the luanti package,
-	# see there for more professional comment which I spent
-	# more hours writing)
-	find \
-		"$TERMUX_PKG_SRCDIR"/Common/GPU \
-		"$TERMUX_PKG_SRCDIR"/Common/MsgHandler.h \
-		"$TERMUX_PKG_SRCDIR"/Common/Log.h \
-		"$TERMUX_PKG_SRCDIR"/ppsspp_config.h \
-		"$TERMUX_PKG_SRCDIR"/ext/naett \
-		"$TERMUX_PKG_SRCDIR"/Qt \
-		"$TERMUX_PKG_SRCDIR"/UI \
-		-type f -print0 | xargs -0 sed -i \
-		-e 's/\([^A-Za-z0-9_]__ANDROID\)\(__[^A-Za-z0-9_]\)/\1__DISABLING_THIS_BECAUSE_IT_IS_FOR_BUILDING_AN_APK\2/g' \
-		-e 's/\([^A-Za-z0-9_]__ANDROID\)__$/\1_DISABLING_THIS_BECAUSE_IT_IS_FOR_BUILDING_AN_APK__/g'
+termux_step_post_make_install() {
+	# Install the original binary under its native name
+	install -Dm700 "$TERMUX_PKG_BUILDDIR/PPSSPPSDL" \
+	"$TERMUX_PREFIX/bin/PPSSPPSDL"
+
+	# Create a convenience symlink: ppsspp -> PPSSPPSDL
+	ln -sf PPSSPPSDL "$TERMUX_PREFIX/bin/ppsspp"
+
+	# Copy assets
+	mkdir -p "$TERMUX_PREFIX/share/ppsspp"
+	cp -r "$TERMUX_PKG_BUILDDIR/assets" "$TERMUX_PREFIX/share/ppsspp/"
 }
