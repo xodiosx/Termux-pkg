@@ -5,8 +5,8 @@ TERMUX_PKG_MAINTAINER="@termux"
 TERMUX_PKG_VERSION="1.20.4"
 TERMUX_PKG_GIT_BRANCH="v${TERMUX_PKG_VERSION}"
 TERMUX_PKG_SRCURL="git+https://github.com/hrydgard/ppsspp"
-TERMUX_PKG_DEPENDS="sdl2, sdl2-ttf, fontconfig, libcurl, glew, libpng, rapidjson, miniupnpc, zstd, zlib, libzip, libsnappy, libcpufeatures, ffmpeg, spirv-tools"
-TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules, libglvnd-dev, vulkan-headers, spirv-headers"
+TERMUX_PKG_DEPENDS="libandroid-stub, sdl2, sdl2-ttf, fontconfig, libcurl, glew, libpng, rapidjson, miniupnpc, zstd, zlib, libzip, libsnappy, libcpufeatures, ffmpeg, spirv-tools"
+TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules, libglvnd-dev, vulkan-headers, spirv-headers, mesa-dev"
 TERMUX_PKG_AUTO_UPDATE=true
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DCMAKE_SYSTEM_NAME=Linux
@@ -43,11 +43,6 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DUSE_CCACHE=OFF
 -DUSE_NO_MMAP=OFF
 -DGOLD=OFF
--DCMAKE_PREFIX_PATH=${TERMUX_PREFIX}
--DSDL2_INCLUDE_DIR=${TERMUX_PREFIX}/include/SDL2
--DSDL2_LIBRARY=${TERMUX_PREFIX}/lib/libSDL2.so
--DSDL2_TTF_INCLUDE_DIR=${TERMUX_PREFIX}/include/SDL2
--DSDL2_TTF_LIBRARY=${TERMUX_PREFIX}/lib/libSDL2_ttf.so
 "
 
 termux_step_pre_configure() {
