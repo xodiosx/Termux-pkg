@@ -48,6 +48,9 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_step_pre_configure() {
+	# Disable Android-specific test calls
+	sed -i 's/Arm64EmitterTest();/\/\/ Arm64EmitterTest();/' UI/NativeApp.cpp
+	sed -i 's/ArmEmitterTest();/\/\/ ArmEmitterTest();/' UI/NativeApp.cpp
 	# Disable `ppsspp`'s Android code for building an APK.
 	find \
 		"$TERMUX_PKG_SRCDIR"/Common/GPU \
