@@ -40,13 +40,10 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DUSE_UBSAN=OFF
 -DUSE_CCACHE=OFF
 -DUSE_NO_MMAP=OFF
--DCMAKE_LIBRARY_PATH=${TERMUX_STANDALONE_TOOLCHAIN}/sysroot/usr/lib/${TERMUX_HOST_PLATFORM}
--DCMAKE_EXE_LINKER_FLAGS=-L${TERMUX_STANDALONE_TOOLCHAIN}/sysroot/usr/lib/${TERMUX_HOST_PLATFORM}
--DCMAKE_SHARED_LINKER_FLAGS=-L${TERMUX_STANDALONE_TOOLCHAIN}/sysroot/usr/lib/${TERMUX_HOST_PLATFORM}
 "
 
 termux_step_pre_configure() {
-	export LDFLAGS+=" -L${TERMUX_STANDALONE_TOOLCHAIN}/sysroot/usr/lib/${TERMUX_HOST_PLATFORM}"
+	export LDFLAGS+=" -landroid"
 	# Disable Android-specific test calls
 	sed -i 's/Arm64EmitterTest();/\/\/ Arm64EmitterTest();/' UI/NativeApp.cpp
 	sed -i 's/ArmEmitterTest();/\/\/ ArmEmitterTest();/' UI/NativeApp.cpp
