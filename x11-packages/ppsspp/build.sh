@@ -42,6 +42,17 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DUSE_NO_MMAP=OFF
 "
 
+termux_step_post_extract_package() {
+	# Replace Android ashmem/dlopen(libandroid.so) with POSIX shm emulation
+	# immediately after the source code is cloned.
+	cp -a "$TERMUX_PKG_BUILDER_DIR/Common-MemArenaAndroid.cpp" \
+		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
+
+	# Replace placeholder with the real Termux prefix
+	sed -i "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
+		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
+}
+
 termux_step_pre_configure() {
 	cd "$TERMUX_PKG_SRCDIR"
 	# Replace Android ashmem/dlopen(libandroid.so) with POSIX shm emulation.
