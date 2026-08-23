@@ -43,11 +43,13 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_step_pre_configure() {
-	export LDFLAGS+=" -landroid"
+	#export LDFLAGS+=" -landroid"
 	# Disable Android-specific test calls
 	sed -i 's/Arm64EmitterTest();/\/\/ Arm64EmitterTest();/' UI/NativeApp.cpp
 	sed -i 's/ArmEmitterTest();/\/\/ ArmEmitterTest();/' UI/NativeApp.cpp
 	# Disable `ppsspp`'s Android code for building an APK.
+	sed -i 's|dlopen("libandroid.so"|dlopen(nullptr|' \
+	"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
 	find \
 		"$TERMUX_PKG_SRCDIR"/Common/GPU \
 		"$TERMUX_PKG_SRCDIR"/Common/Log.h \
