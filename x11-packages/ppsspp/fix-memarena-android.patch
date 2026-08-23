@@ -1,7 +1,6 @@
-diff --git a/Common/MemArenaAndroid.cpp b/Common/MemArenaAndroid.cpp
 --- a/Common/MemArenaAndroid.cpp
 +++ b/Common/MemArenaAndroid.cpp
-@@ -1,12 +1,12 @@
+@@ -17,13 +17,13 @@
  #include <sys/stat.h>
  #include <fcntl.h>
  #include <unistd.h>
@@ -17,16 +16,15 @@ diff --git a/Common/MemArenaAndroid.cpp b/Common/MemArenaAndroid.cpp
  #include "Common/MemArena.h"
  #include "Common/StringUtils.h"
  #include "Common/System/System.h"
-@@ -13,7 +13,6 @@
  
- // Hopefully this ABI will never change...
- 
+-// Hopefully this ABI will never change...
+-
 -#define ASHMEM_DEVICE	"/dev/ashmem"
- 
+-
  bool MemArena::NeedsProbing() {
  	return false;
  }
-@@ -23,45 +22,62 @@
+@@ -39,44 +36,60 @@
 -// ashmem_create_region - creates a new ashmem region and returns the file
 -// descriptor, or <0 on error
 -// This function is defined in much later version of the ndk, so we can only access it via dlopen().
@@ -127,12 +125,7 @@ diff --git a/Common/MemArenaAndroid.cpp b/Common/MemArenaAndroid.cpp
 +
 +	return fd;
 +}
- 
- // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
- size_t MemArena::roundup(size_t x) {
- 	return x;
- }
- 
+@@ -89,17 +84,24 @@
  bool MemArena::GrabMemSpace(size_t size) {
 -	// Use ashmem so we don't have to allocate a file on disk!
  	const char* name = "PPSSPP_RAM";
@@ -160,7 +153,7 @@ diff --git a/Common/MemArenaAndroid.cpp b/Common/MemArenaAndroid.cpp
 +
  	return true;
  }
- 
+@@ -107,6 +104,7 @@
  void MemArena::ReleaseSpace() {
  	if (fd >= 0) {
 +		shm_unlink("PPSSPP_RAM");
