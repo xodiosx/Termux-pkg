@@ -1,0 +1,170 @@
+diff --git a/Common/MemArenaAndroid.cpp b/Common/MemArenaAndroid.cpp
+--- a/Common/MemArenaAndroid.cpp
++++ b/Common/MemArenaAndroid.cpp
+@@ -1,12 +1,12 @@
+ #include <sys/stat.h>
+ #include <fcntl.h>
+ #include <unistd.h>
+ #include <cerrno>
+-#include <sys/ioctl.h>
+-#include <linux/ashmem.h>
+-#include <dlfcn.h>
++#include <alloca.h>
++#include <cstring>
+ 
+ #include "Common/Log.h"
+ #include "Common/MemoryUtil.h"
+ #include "Common/MemArena.h"
+ #include "Common/StringUtils.h"
+ #include "Common/System/System.h"
+@@ -13,7 +13,6 @@
+ 
+ // Hopefully this ABI will never change...
+ 
+-#define ASHMEM_DEVICE	"/dev/ashmem"
+ 
+ bool MemArena::NeedsProbing() {
+ 	return false;
+ }
+@@ -23,45 +22,62 @@
+-// ashmem_create_region - creates a new ashmem region and returns the file
+-// descriptor, or <0 on error
+-// This function is defined in much later version of the ndk, so we can only access it via dlopen().
+-// `name' is an optional label to give the region (visible in /proc/pid/maps)
+-// `size' is the size of the region, in page-aligned bytes
+-static int ashmem_create_region(const char *name, size_t size) {
+-	static void* handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+-	using type_ASharedMemory_create = int(*)(const char *name, size_t size);
+-	static type_ASharedMemory_create function_create = nullptr;
+-
+-	if (handle != nullptr) {
+-		function_create =
+-			reinterpret_cast<type_ASharedMemory_create>(dlsym(handle, "ASharedMemory_create"));
+-	}
+-
+-	if (function_create != nullptr) {
+-		return function_create(name, size);
+-	} else {
+-		return -1;
+-	}
+-}
+-
+-// legacy_ashmem_create_region - creates a new ashmem region and returns the file
+-// descriptor, or <0 on error
+-// `name' is an optional label to give the region (visible in /proc/pid/maps)
+-// `size' is the size of the region, in page-aligned bytes
+-static int legacy_ashmem_create_region(const char *name, size_t size) {
+-	int fd = open(ASHMEM_DEVICE, O_RDWR);
+-	if (fd < 0)
+-		return fd;
+-
+-	int ret;
+-	if (name) {
+-		char buf[ASHMEM_NAME_LEN];
+-		truncate_cpy(buf, name);
+-		ret = ioctl(fd, ASHMEM_SET_NAME, buf);
+-		if (ret < 0)
+-			goto error;
+-	}
+-
+-	ret = ioctl(fd, ASHMEM_SET_SIZE, size);
+-	if (ret < 0)
+-		goto error;
+-
+-	return fd;
+-
+-error:
+-	ERROR_LOG(Log::MemMap, "NASTY ASHMEM ERROR: ret = %08x", ret);
+-	close(fd);
+-	return ret;
+-}
++static int shm_unlink(const char *name) {
++	size_t namelen;
++	char *fname;
++
++	while (name[0] == '/') ++name;
++	if (name[0] == '\0') {
++		errno = EINVAL;
++		return -1;
++	}
++
++	namelen = strlen(name);
++	fname = (char *) alloca(sizeof("@TERMUX_PREFIX@/tmp/") - 1 + namelen + 1);
++	memcpy(fname, "@TERMUX_PREFIX@/tmp/", sizeof("@TERMUX_PREFIX@/tmp/") - 1);
++	memcpy(fname + sizeof("@TERMUX_PREFIX@/tmp/") - 1, name, namelen + 1);
++
++	return unlink(fname);
++}
++
++static int shm_open(const char *name, int oflag, mode_t mode) {
++	size_t namelen;
++	char *fname;
++	int fd;
++
++	while (name[0] == '/') ++name;
++	if (name[0] == '\0') {
++		errno = EINVAL;
++		return -1;
++	}
++
++	namelen = strlen(name);
++	fname = (char *) alloca(sizeof("@TERMUX_PREFIX@/tmp/") - 1 + namelen + 1);
++	memcpy(fname, "@TERMUX_PREFIX@/tmp/", sizeof("@TERMUX_PREFIX@/tmp/") - 1);
++	memcpy(fname + sizeof("@TERMUX_PREFIX@/tmp/") - 1, name, namelen + 1);
++
++	fd = open(fname, oflag, mode);
++	if (fd != -1) {
++		int flags = fcntl(fd, F_GETFD, 0);
++		flags |= FD_CLOEXEC;
++		flags = fcntl(fd, F_SETFD, flags);
++		if (flags == -1) {
++			int save_errno = errno;
++			close(fd);
++			fd = -1;
++			errno = save_errno;
++		}
++	}
++
++	return fd;
++}
+ 
+ // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
+ size_t MemArena::roundup(size_t x) {
+ 	return x;
+ }
+ 
+ bool MemArena::GrabMemSpace(size_t size) {
+-	// Use ashmem so we don't have to allocate a file on disk!
+ 	const char* name = "PPSSPP_RAM";
+ 
+-	// Since version 26 Android provides a new api for accessing SharedMemory.
+-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26) {
+-		fd = ashmem_create_region(name, size);
+-	} else {
+-		fd = legacy_ashmem_create_region(name, size);
+-	}
+-	// Note that it appears that ashmem is pinned by default, so no need to pin.
++	fd = shm_open(name, O_RDWR | O_CREAT, 0600);
+ 	if (fd < 0) {
+-		ERROR_LOG(Log::MemMap, "Failed to grab ashmem space of size: %08x  errno: %d", (int)size, (int)(errno));
++		ERROR_LOG(Log::MemMap, "Failed to grab shared memory space of size: %08x  errno: %d", (int)size, (int)(errno));
+ 		return false;
+ 	}
++
++	if (ftruncate(fd, size) < 0) {
++		ERROR_LOG(Log::MemMap, "Failed to truncate shared memory to size: %08x  errno: %d", (int)size, (int)(errno));
++		close(fd);
++		fd = -1;
++		return false;
++	}
++
+ 	return true;
+ }
+ 
+ void MemArena::ReleaseSpace() {
+ 	if (fd >= 0) {
++		shm_unlink("PPSSPP_RAM");
+ 		close(fd);
+ 	}
+ 	fd = -1;
+ }
