@@ -45,7 +45,7 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 termux_step_pre_configure() {
 	cd "$TERMUX_PKG_SRCDIR"
 	# Replace Android ashmem/dlopen(libandroid.so) with POSIX shm emulation.
-	cp "$TERMUX_PKG_BUILDER_DIR/Common-MemArenaAndroid.cpp" \
+	cp -a "$TERMUX_PKG_BUILDER_DIR/MemArenaAndroid.cpp" \
 		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
 	# Replace placeholder with the real Termux prefix.
 	sed -i "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
