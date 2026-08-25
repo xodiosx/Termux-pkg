@@ -1,3 +1,10 @@
+TERMUX_PKG_HOMEPAGE=https://www.ppsspp.org/
+TERMUX_PKG_DESCRIPTION="PlayStation Portable emulator"
+TERMUX_PKG_LICENSE="GPL-2.0"
+TERMUX_PKG_MAINTAINER="@termux"
+TERMUX_PKG_VERSION="1.20.4"
+TERMUX_PKG_GIT_BRANCH="v${TERMUX_PKG_VERSION}"
+TERMUX_PKG_SRCURL="git+https://github.com/hrydgard/ppsspp
 TERMUX_PKG_DEPENDS="sdl2, sdl2-ttf, fontconfig, libcurl, glew, libpng, rapidjson, miniupnpc, zstd, zlib, libzip, libsnappy, libcpufeatures, spirv-tools, iconv"
 TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules, libglvnd-dev, vulkan-headers, spirv-headers, mesa-dev, nasm"
 
