@@ -23,12 +23,11 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DATLAS_TOOL=ON
 -DUNITTEST=OFF
 -DUSE_LIBNX=OFF
--DUSE_FFMPEG=OFF
+-DUSE_FFMPEG=ON
 -DUSE_DISCORD=OFF
 -DUSE_MINIUPNPC=ON
 -DUSE_SYSTEM_SNAPPY=ON
 -DUSE_SYSTEM_FFMPEG=OFF
--DVIDEO_CORE=ON
 -DUSE_SYSTEM_FREETYPE=ON
 -DUSE_SYSTEM_LIBCHDR=OFF
 -DUSE_SYSTEM_LIBZIP=ON
@@ -52,11 +51,6 @@ termux_step_post_extract_package() {
 	# Replace placeholder with the real Termux prefix
 	sed -i "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
 		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
-		echo "Fetching and preparing pinned internal ppsspp-ffmpeg repository..."
-	cd "$TERMUX_PKG_SRCDIR"
-	
-	# Force initialization of the exact tracked submodule
-	git submodule update --init --recursive ext/ffmpeg
 }
 
 termux_step_pre_configure() {
@@ -70,16 +64,7 @@ termux_step_pre_configure() {
 	# Disable Android-specific test calls
 	sed -i 's/Arm64EmitterTest();/\/\/ Arm64EmitterTest();/' UI/NativeApp.cpp
 	sed -i 's/ArmEmitterTest();/\/\/ ArmEmitterTest();/' UI/NativeApp.cpp
-	# ffmpeg code for building .
-	echo "Compiling pinned internal ffmpeg for native arm64..."
-	cd "$TERMUX_PKG_SRCDIR/ext/ffmpeg"
-	
-	# Execute the optimized native arm64 script provided in Henrik's repo
-	chmod +x linux_arm64_native.sh
-	./linux_arm64_native.sh
-	
-	# Return to the main source directory path
-	cd "$TERMUX_PKG_SRCDIR"
+	# code for building .
 
 	find \
 		"$TERMUX_PKG_SRCDIR"/Common/GPU \
