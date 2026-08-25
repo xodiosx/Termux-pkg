@@ -5,13 +5,9 @@ TERMUX_PKG_MAINTAINER="@termux"
 TERMUX_PKG_VERSION="1.20.4"
 TERMUX_PKG_GIT_BRANCH="v${TERMUX_PKG_VERSION}"
 TERMUX_PKG_SRCURL="git+https://github.com"
-
-# Keep your original standalone packages intact
 TERMUX_PKG_DEPENDS="sdl2, sdl2-ttf, fontconfig, libcurl, glew, libpng, rapidjson, miniupnpc, zstd, zlib, libzip, libsnappy, libcpufeatures, spirv-tools"
 TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules, libglvnd-dev, vulkan-headers, spirv-headers, mesa-dev"
 TERMUX_PKG_AUTO_UPDATE=true
-
-# Standard standalone configure settings (No changes here)
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DCMAKE_SYSTEM_NAME=Linux
 -DBUILD_TESTING=OFF
@@ -68,7 +64,6 @@ termux_step_pre_configure() {
 	mkdir -p "$TERMUX_PKG_SRCDIR/build_android_core"
 	cd "$TERMUX_PKG_SRCDIR/build_android_core"
 
-	# We explicitly instruct CMake that we are targeting Android system logic.
 	# We turn OFF system ffmpeg dependencies, forcing it to find the native in-tree links.
 	cmake -DCMAKE_SYSTEM_NAME=Android \
 		-DLIBRETRO=ON \
