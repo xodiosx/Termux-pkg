@@ -60,7 +60,7 @@ termux_step_post_extract_package() {
 termux_step_pre_configure() {
 	# PHASE 1: BUILD THE PRISTINE ANDROID RETROARCH CORE (WITHOUT DESKTOP PATCHES)
 	echo "Compiling clean Android Libretro core file module..."
-	
+
 	mkdir -p "$TERMUX_PKG_SRCDIR/build_android_core"
 	cd "$TERMUX_PKG_SRCDIR/build_android_core"
 
@@ -88,16 +88,16 @@ termux_step_pre_configure() {
 
 	echo "Proceeding with standard standalone desktop patches..."
 	cd "$TERMUX_PKG_SRCDIR"
-	
+
 	cp -a "$TERMUX_PKG_BUILDER_DIR/MemArenaAndroid.cpp" \
 		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
-		
+
 	sed -i "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
 		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
-		
+
 	sed -i 's/Arm64EmitterTest();/\/\/ Arm64EmitterTest();/' UI/NativeApp.cpp
 	sed -i 's/ArmEmitterTest();/\/\/ ArmEmitterTest();/' UI/NativeApp.cpp
-	
+
 	find \
 		"$TERMUX_PKG_SRCDIR"/Common/GPU \
 		"$TERMUX_PKG_SRCDIR"/Common/Log.h \
