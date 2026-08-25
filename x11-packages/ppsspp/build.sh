@@ -1,13 +1,6 @@
-TERMUX_PKG_HOMEPAGE=https://www.ppsspp.org/
-TERMUX_PKG_DESCRIPTION="PlayStation Portable emulator"
-TERMUX_PKG_LICENSE="GPL-2.0"
-TERMUX_PKG_MAINTAINER="@termux"
-TERMUX_PKG_VERSION="1.20.4"
-TERMUX_PKG_GIT_BRANCH="v${TERMUX_PKG_VERSION}"
-TERMUX_PKG_SRCURL="git+https://github.com/hrydgard/ppsspp"
-TERMUX_PKG_DEPENDS="sdl2, sdl2-ttf, fontconfig, libcurl, glew, libpng, rapidjson, miniupnpc, zstd, zlib, libzip, libsnappy, libcpufeatures, spirv-tools"
-TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules, libglvnd-dev, vulkan-headers, spirv-headers, mesa-dev"
-TERMUX_PKG_AUTO_UPDATE=true
+TERMUX_PKG_DEPENDS="sdl2, sdl2-ttf, fontconfig, libcurl, glew, libpng, rapidjson, miniupnpc, zstd, zlib, libzip, libsnappy, libcpufeatures, spirv-tools, iconv"
+TERMUX_PKG_BUILD_DEPENDS="extra-cmake-modules, libglvnd-dev, vulkan-headers, spirv-headers, mesa-dev, nasm"
+
 TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DCMAKE_SYSTEM_NAME=Linux
 -DBUILD_TESTING=OFF
@@ -24,10 +17,11 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -DUNITTEST=OFF
 -DUSE_LIBNX=OFF
 -DUSE_FFMPEG=ON
+-DBUILD_BUNDLED_FFMPEG=ON
+-DUSE_SYSTEM_FFMPEG=OFF
 -DUSE_DISCORD=OFF
 -DUSE_MINIUPNPC=ON
 -DUSE_SYSTEM_SNAPPY=ON
--DUSE_SYSTEM_FFMPEG=OFF
 -DUSE_SYSTEM_FREETYPE=ON
 -DUSE_SYSTEM_LIBCHDR=OFF
 -DUSE_SYSTEM_LIBZIP=ON
@@ -43,29 +37,19 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 "
 
 termux_step_post_extract_package() {
-	# Replace Android ashmem/dlopen(libandroid.so) with POSIX shm emulation
-	# immediately after the source code is cloned.
 	cp -a "$TERMUX_PKG_BUILDER_DIR/Common-MemArenaAndroid.cpp" \
 		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
-
-	# Replace placeholder with the real Termux prefix
 	sed -i "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
 		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
 }
 
 termux_step_pre_configure() {
 	cd "$TERMUX_PKG_SRCDIR"
-	# Replace Android ashmem/dlopen(libandroid.so) with POSIX shm emulation.
-	cp -a "$TERMUX_PKG_BUILDER_DIR/MemArenaAndroid.cpp" \
-		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
-	# Replace placeholder with the real Termux prefix.
-	sed -i "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" \
-		"$TERMUX_PKG_SRCDIR/Common/MemArenaAndroid.cpp"
-	# Disable Android-specific test calls
-	sed -i 's/Arm64EmitterTest();/\/\/ Arm64EmitterTest();/' UI/NativeApp.cpp
-	sed -i 's/ArmEmitterTest();/\/\/ ArmEmitterTest();/' UI/NativeApp.cpp
-	# code for building .
+	# Disable Android-specific test calls (linker errors otherwise)
+	sed -i '/Arm64EmitterTest();/d' UI/NativeApp.cpp
+	sed -i '/ArmEmitterTest();/d' UI/NativeApp.cpp
 
+	# Disable __ANDROID__ usage in other selected files
 	find \
 		"$TERMUX_PKG_SRCDIR"/Common/GPU \
 		"$TERMUX_PKG_SRCDIR"/Common/Log.h \
@@ -77,9 +61,6 @@ termux_step_pre_configure() {
 		-e 's/\([^A-Za-z0-9_]__ANDROID\)__$/\1_DISABLING_THIS_BECAUSE_IT_IS_FOR_BUILDING_AN_APK__/g'
 }
 
-
 termux_step_post_make_install() {
-	# Create a convenience symlink: ppsspp -> PPSSPPSDL
-	cd $TERMUX_PREFIX/bin
 	ln -sf PPSSPPSDL "$TERMUX_PREFIX/bin/ppsspp"
 }
