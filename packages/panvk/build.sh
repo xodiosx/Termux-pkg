@@ -55,7 +55,6 @@ termux_step_pre_configure() {
 			sed "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" "${p}" \
 				| patch --silent -p1 -d "$srcdir"
 		done
-	fi
 
 	termux_setup_cmake
 
