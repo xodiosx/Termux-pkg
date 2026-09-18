@@ -13,9 +13,9 @@ TERMUX_PKG_AUTO_UPDATE=false
 # Meson buildtype goes through this framework variable, NOT -Dbuildtype.
 TERMUX_PKG_MESON_BUILDTYPE=debugoptimized
 
-TERMUX_PKG_DEPENDS="libandroid-shmem, libc++, libdrm, libglvnd, libllvm (<< $TERMUX_LLVM_NEXT_MAJOR_VERSION), libwayland, libx11, libxext, libxfixes, libxshmfence, libxxf86vm, ncurses, vulkan-loader, zlib, zstd"
+TERMUX_PKG_DEPENDS="libandroid-shmem, libc++, libdrm, libllvm (<< $TERMUX_LLVM_NEXT_MAJOR_VERSION), libx11, libxext, libxfixes, libxshmfence, libxxf86vm, vulkan-loader, zlib, zstd"
 TERMUX_PKG_SUGGESTS="mesa-dev"
-TERMUX_PKG_BUILD_DEPENDS="libclc, libwayland-protocols, libxrandr, llvm, llvm-tools, mlir, spirv-tools, xorgproto"
+TERMUX_PKG_BUILD_DEPENDS="libclc, libxrandr, llvm, llvm-tools, mlir, spirv-tools, xorgproto"
 
 TERMUX_PKG_BREAKS="osmesa, osmesa-demos"
 TERMUX_PKG_CONFLICTS="libmesa, ndk-sysroot (<= 25b), osmesa"
@@ -30,7 +30,7 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -Dgles1=disabled
 -Dgles2=disabled
 -Dgbm=disabled
--Dglvnd=enabled
+-Dglvnd=disabled
 -Dllvm=enabled
 -Dshared-llvm=enabled
 -Dxmlconfig=disabled
