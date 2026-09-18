@@ -50,10 +50,19 @@ termux_step_post_get_source() {
 }
 
 termux_step_pre_configure() {
+		# Skip the android-detection patch — the fork already has it.
 		for p in "$TERMUX_SCRIPTDIR"/packages/mesa/*.patch; do
+			[ -f "$p" ] || continue
+			case "$(basename "$p")" in
+				0000-disable-android-detection.patch)
+					echo "Skipping $(basename "$p") (already applied in fork)"
+					continue
+					;;
+			esac
 			echo "Applying $(basename "${p}")"
 			sed "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" "${p}" \
-				| patch --silent -p1 -d "$TERMUX_PKG_SRCDIR"
+				| patch --silent -p1 -d "$TERMUX_PKG_SRCDIR" \
+				|| echo "  ⚠ $(basename "${p}") did not apply — skipped"
 		done
 
 	termux_setup_cmake
