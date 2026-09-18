@@ -10,6 +10,9 @@ TERMUX_PKG_SRCURL=git+https://github.com/xodiosx/mesa-panvk-g57
 TERMUX_PKG_GIT_BRANCH=main
 TERMUX_PKG_AUTO_UPDATE=false
 
+# Meson buildtype goes through this framework variable, NOT -Dbuildtype.
+TERMUX_PKG_MESON_BUILDTYPE=debugoptimized
+
 TERMUX_PKG_DEPENDS="libandroid-shmem, libc++, libdrm, libglvnd, libllvm (<< $TERMUX_LLVM_NEXT_MAJOR_VERSION), libwayland, libx11, libxext, libxfixes, libxshmfence, libxxf86vm, ncurses, vulkan-loader, zlib, zstd"
 TERMUX_PKG_SUGGESTS="mesa-dev"
 TERMUX_PKG_BUILD_DEPENDS="libclc, libwayland-protocols, libxrandr, llvm, llvm-tools, mlir, spirv-tools, xorgproto"
@@ -41,7 +44,6 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 -Dvalgrind=disabled
 -Dperfetto=false
 -Dandroid-libbacktrace=disabled
--Dbuildtype=debugoptimized
 "
 
 termux_step_post_get_source() {
