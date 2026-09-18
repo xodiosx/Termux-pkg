@@ -72,7 +72,6 @@ termux_step_post_get_source() {
 	# Fix #2 — remove with_panfrost_vk from with_driver_using_cl
 	# (meson.build, top level)
 	#
-	# The fork wrongly lists PanVK in the "drivers that use CLC" array.
 	# CLC is the OpenCL C compiler; PanVK has nothing to do with it.
 	# Removing that token makes with_clc=false for a PanVK-only build,
 	# so src/compiler/clc is never entered.
@@ -103,6 +102,29 @@ termux_step_post_get_source() {
 
 	echo "=== src/poly/meson.build after sed ==="
 	cat src/poly/meson.build
+
+	# ------------------------------------------------------------------
+	# Fix #4 — fallback idep_libpoly in src/poly/nir/meson.build
+	#
+	# Skipping the poly/cl subdir (Fix #3) also skipped the definition
+	# of idep_libpoly, which normally lives in src/poly/cl/meson.build.
+	# But src/poly/nir/meson.build uses idep_libpoly at line 18
+	# (`dependencies : [idep_libpoly, idep_nir, idep_mesautil]`).
+	# Prepending a fallback empty dependency lets the NIR-side library
+	# build without linking the CL-side library. PanVK only needs the
+	# NIR path, so the fallback is functionally correct.
+	# ------------------------------------------------------------------
+	sed -i "1i if not is_variable('idep_libpoly')\n  idep_libpoly = declare_dependency()\nendif\n" \
+		src/poly/nir/meson.build
+
+	if head -3 src/poly/nir/meson.build | grep -q "is_variable('idep_libpoly')"; then
+		echo "OK: fallback idep_libpoly prepended to src/poly/nir/meson.build"
+	else
+		echo "WARN: sed for src/poly/nir/meson.build did not match — check manually"
+	fi
+
+	echo "=== src/poly/nir/meson.build (top 10 lines) ==="
+	head -10 src/poly/nir/meson.build
 }
 
 termux_step_pre_configure() {
