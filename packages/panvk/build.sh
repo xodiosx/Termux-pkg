@@ -76,10 +76,13 @@ termux_step_pre_configure() {
 	_WRAPPER_BIN=$TERMUX_PKG_BUILDDIR/_wrapper/bin
 	mkdir -p "$_WRAPPER_BIN"
 	if [ "$TERMUX_ON_DEVICE_BUILD" = "false" ]; then
-		sed 's|@CMAKE@|'"$(command -v cmake)"'|g' \
-			"$TERMUX_PKG_BUILDER_DIR/cmake-wrapper.in" \
-			> "$_WRAPPER_BIN/cmake"
-		chmod 0700 "$_WRAPPER_BIN/cmake"
+		# cmake-wrapper.in lives in the mesa package dir, not panvk/.
+		local cmake_wrapper="$TERMUX_SCRIPTDIR/packages/mesa/cmake-wrapper.in"
+		if [ -f "$cmake_wrapper" ]; then
+			sed 's|@CMAKE@|'"$(command -v cmake)"'|g' "$cmake_wrapper" \
+				> "$_WRAPPER_BIN/cmake"
+			chmod 0700 "$_WRAPPER_BIN/cmake"
+		fi
 		termux_setup_wayland_cross_pkg_config_wrapper
 	fi
 	export LLVM_CONFIG="${TERMUX_PREFIX}/bin/llvm-config"
