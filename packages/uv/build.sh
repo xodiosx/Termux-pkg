@@ -3,9 +3,9 @@ TERMUX_PKG_DESCRIPTION="An extremely fast Python package installer and resolver,
 TERMUX_PKG_LICENSE="Apache-2.0, MIT"
 TERMUX_PKG_LICENSE_FILE="LICENSE-APACHE, LICENSE-MIT"
 TERMUX_PKG_MAINTAINER="@termux"
-TERMUX_PKG_VERSION="0.12.5"
+TERMUX_PKG_VERSION="0.12.16"
 TERMUX_PKG_SRCURL=https://github.com/astral-sh/uv/archive/refs/tags/${TERMUX_PKG_VERSION}.tar.gz
-TERMUX_PKG_SHA256=e349c9eb85876921895330f6fee5f01f109d5ec06dcd3b475fb7b4b8de75eac6
+TERMUX_PKG_SHA256=a63a5bb76bc2451dc60f5c50c7f1d8209c016e474c63c9acce412aee47fce2c7
 TERMUX_PKG_DEPENDS="zstd"
 TERMUX_PKG_BUILD_IN_SRC=true
 TERMUX_PKG_AUTO_UPDATE=true
@@ -13,6 +13,19 @@ TERMUX_PKG_AUTO_UPDATE=true
 termux_step_pre_configure() {
 	termux_setup_cmake
 	termux_setup_rust
+
+	cargo vendor
+	find ./vendor -mindepth 1 -maxdepth 1 -type d \
+		! -wholename ./vendor/rustls-platform-verifier \
+		-exec rm -rf '{}' \;
+	find vendor/rustls-platform-verifier -type f -print0 | \
+		xargs -0 sed -i \
+		-e 's|"android"|"disabling_this_because_it_is_for_building_an_apk"|g'
+	cat >> Cargo.toml <<-EOF
+
+		[patch.crates-io]
+		rustls-platform-verifier = { path = "./vendor/rustls-platform-verifier" }
+	EOF
 }
 
 termux_step_make() {
