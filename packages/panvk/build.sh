@@ -52,13 +52,6 @@ termux_step_post_get_source() {
 
 	# ------------------------------------------------------------------
 	# Fix #1 — vtn_bindgen2 (src/compiler/spirv/meson.build:83)
-	#
-	# vtn_bindgen2 is `native : not can_run_host_binaries()` (true in
-	# cross), but its `dependencies : [idep_vtn, …]` pulls in
-	# `link_with : libvtn`, and libvtn is a host target. Meson refuses.
-	# vtn_bindgen2.c only reads headers — no libvtn symbols — so:
-	#   (a) list the generated headers as sources so they build first,
-	#   (b) drop idep_vtn from dependencies.
 	# ------------------------------------------------------------------
 	sed -i \
 		-e "s|\['vtn_bindgen2.c'\],|['vtn_bindgen2.c', vtn_generator_ids_h, spirv_info_h],|" \
@@ -69,12 +62,7 @@ termux_step_post_get_source() {
 	sed -n '/prog_vtn_bindgen2 = executable/,/^   )/p' src/compiler/spirv/meson.build
 
 	# ------------------------------------------------------------------
-	# Fix #2 — remove with_panfrost_vk from with_driver_using_cl
-	# (meson.build, top level)
-	#
-	# CLC is the OpenCL C compiler; PanVK has nothing to do with it.
-	# Removing that token makes with_clc=false for a PanVK-only build,
-	# so src/compiler/clc is never entered.
+	# Fix #2 — remove with_panfrost_vk from with_driver_using_cl (meson.build)
 	# ------------------------------------------------------------------
 	sed -i \
 		"s|with_gallium_panfrost, with_panfrost_vk,|with_gallium_panfrost,|" \
@@ -85,12 +73,6 @@ termux_step_post_get_source() {
 
 	# ------------------------------------------------------------------
 	# Fix #3 — guard subdir('cl') in src/poly/meson.build
-	#
-	# With with_clc=false, prog_mesa_clc is never defined. But
-	# src/poly/meson.build enters subdir('cl') unconditionally, and
-	# src/poly/cl/meson.build references prog_mesa_clc at line 14.
-	# Wrapping that subdir in `if with_clc` skips it entirely when CLC
-	# is not being built.
 	# ------------------------------------------------------------------
 	sed -i "s|^subdir('cl')|if with_clc\n  subdir('cl')\nendif|" src/poly/meson.build
 
@@ -105,14 +87,6 @@ termux_step_post_get_source() {
 
 	# ------------------------------------------------------------------
 	# Fix #4 — fallback idep_libpoly in src/poly/nir/meson.build
-	#
-	# Skipping the poly/cl subdir (Fix #3) also skipped the definition
-	# of idep_libpoly, which normally lives in src/poly/cl/meson.build.
-	# But src/poly/nir/meson.build uses idep_libpoly at line 18
-	# (`dependencies : [idep_libpoly, idep_nir, idep_mesautil]`).
-	# Prepending a fallback empty dependency lets the NIR-side library
-	# build without linking the CL-side library. PanVK only needs the
-	# NIR path, so the fallback is functionally correct.
 	# ------------------------------------------------------------------
 	sed -i "1i if not is_variable('idep_libpoly')\n  idep_libpoly = declare_dependency()\nendif\n" \
 		src/poly/nir/meson.build
@@ -125,6 +99,34 @@ termux_step_post_get_source() {
 
 	echo "=== src/poly/nir/meson.build (top 10 lines) ==="
 	head -10 src/poly/nir/meson.build
+
+	# ------------------------------------------------------------------
+	# Fix #5 — guard subdir('clc') in src/panfrost/meson.build
+	#
+	# src/panfrost/clc/meson.build:9
+	#   ERROR: Tried to mix a host machine library ("panfrost_compiler")
+	#   with a build machine target "panfrost_compile"
+	#
+	# Same pattern one level down: panfrost_compile is a native tool
+	# (build machine) that links panfrost_compiler (host machine). This
+	# subdir only exists to build the Panfrost OpenCL C compiler, which
+	# PanVK does not use.
+	#
+	# Guarding subdir('clc') with `if with_clc` skips it entirely when
+	# CLC is off (our case).
+	# ------------------------------------------------------------------
+	if [ -f src/panfrost/meson.build ]; then
+		sed -i "s|^subdir('clc')|if with_clc\n  subdir('clc')\nendif|" src/panfrost/meson.build
+
+		if grep -q "^if with_clc" src/panfrost/meson.build; then
+			echo "OK: subdir('clc') guarded with with_clc"
+		else
+			echo "WARN: sed for src/panfrost/meson.build did not match — check manually"
+		fi
+
+		echo "=== src/panfrost/meson.build after sed ==="
+		cat src/panfrost/meson.build
+	fi
 }
 
 termux_step_pre_configure() {
