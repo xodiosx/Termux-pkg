@@ -50,9 +50,11 @@ termux_step_post_get_source() {
 }
 
 termux_step_pre_configure() {
-	if [ "$TERMUX_PKG_API_LEVEL" -lt 29 ]; then
-		# ELF TLS is supported starting with API level 29.
-		patch --silent -p1 < "$TERMUX_PKG_BUILDER_DIR/0011-lld-undefined-version.diff"
+		for p in "$TERMUX_SCRIPTDIR"/packages/mesa/*.patch; do
+			echo "Applying $(basename "${p}")"
+			sed "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" "${p}" \
+				| patch --silent -p1 -d "$srcdir"
+		done
 	fi
 
 	termux_setup_cmake
