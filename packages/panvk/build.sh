@@ -49,6 +49,29 @@ TERMUX_PKG_EXTRA_CONFIGURE_ARGS="
 termux_step_post_get_source() {
 	# Do not use meson wrap projects
 	rm -rf subprojects
+
+	# ------------------------------------------------------------------
+	# Fix cross-build: vtn_bindgen2 is `native : not can_run_host_binaries()`,
+	# which is true in a cross build, so it's a build-machine target. But its
+	# `dependencies : [idep_vtn, …]` pulls in `link_with : libvtn`, and libvtn
+	# is a host-machine target. Meson refuses to mix the two:
+	#
+	#   meson.build:83:23: ERROR: Tried to mix a host machine library ("vtn")
+	#   with a build machine target "vtn_bindgen2"
+	#
+	# vtn_bindgen2.c only includes vtn_generator_ids.h, util/macros.h and
+	# util/u_debug.h — it never calls into libvtn — so we:
+	#   (1) list the two generated headers as sources so they're built first,
+	#   (2) drop idep_vtn from its dependencies.
+	# Both patterns below are unique to the vtn_bindgen2 block.
+	# ------------------------------------------------------------------
+	sed -i \
+		-e "s|\['vtn_bindgen2.c'\],|['vtn_bindgen2.c', vtn_generator_ids_h, spirv_info_h],|" \
+		-e "s|dependencies : \[idep_vtn, idep_mesautil, idep_nir\],|dependencies : [],|" \
+		src/compiler/spirv/meson.build
+
+	echo "=== vtn_bindgen2 block after sed ==="
+	sed -n '/prog_vtn_bindgen2 = executable/,/^   )/p' src/compiler/spirv/meson.build
 }
 
 termux_step_pre_configure() {
