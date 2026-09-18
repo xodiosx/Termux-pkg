@@ -51,19 +51,18 @@ termux_step_post_get_source() {
 	rm -rf subprojects
 
 	# ------------------------------------------------------------------
-	# Fix cross-build: vtn_bindgen2 is `native : not can_run_host_binaries()`,
-	# which is true in a cross build, so it's a build-machine target. But its
-	# `dependencies : [idep_vtn, …]` pulls in `link_with : libvtn`, and libvtn
-	# is a host-machine target. Meson refuses to mix the two:
+	# Fix #1 — vtn_bindgen2
 	#
-	#   meson.build:83:23: ERROR: Tried to mix a host machine library ("vtn")
-	#   with a build machine target "vtn_bindgen2"
+	# src/compiler/spirv/meson.build:83
+	#   ERROR: Tried to mix a host machine library ("vtn") with a build
+	#   machine target "vtn_bindgen2"
 	#
-	# vtn_bindgen2.c only includes vtn_generator_ids.h, util/macros.h and
-	# util/u_debug.h — it never calls into libvtn — so we:
-	#   (1) list the two generated headers as sources so they're built first,
-	#   (2) drop idep_vtn from its dependencies.
-	# Both patterns below are unique to the vtn_bindgen2 block.
+	# vtn_bindgen2 is `native : not can_run_host_binaries()` (true in
+	# cross), but its `dependencies : [idep_vtn, …]` pulls in
+	# `link_with : libvtn`, and libvtn is a host target. Meson refuses.
+	# vtn_bindgen2.c only reads headers — no libvtn symbols — so:
+	#   (a) list the generated headers as sources so they build first,
+	#   (b) drop idep_vtn from dependencies.
 	# ------------------------------------------------------------------
 	sed -i \
 		-e "s|\['vtn_bindgen2.c'\],|['vtn_bindgen2.c', vtn_generator_ids_h, spirv_info_h],|" \
@@ -72,6 +71,31 @@ termux_step_post_get_source() {
 
 	echo "=== vtn_bindgen2 block after sed ==="
 	sed -n '/prog_vtn_bindgen2 = executable/,/^   )/p' src/compiler/spirv/meson.build
+
+	# ------------------------------------------------------------------
+	# Fix #2 — CLC
+	#
+	# src/compiler/clc/meson.build:126
+	#   ERROR: Tried to mix a host machine library ("libmesaclc") with a
+	#   build machine target "mesa_clc"
+	#
+	# Same pattern, different file. Root cause: the fork put
+	# `with_panfrost_vk` inside `with_driver_using_cl`, so PanVK forces
+	# with_clc=true, which builds src/compiler/clc. CLC is the OpenCL C
+	# compiler — PanVK has nothing to do with it.
+	#
+	# Removing `with_panfrost_vk` from that list makes with_clc=false
+	# for a PanVK-only build, so src/compiler/clc is skipped entirely
+	# and the `mesa_clc` cross-build error never fires.
+	#
+	# Pattern is unique to the `with_driver_using_cl = [...]` list.
+	# ------------------------------------------------------------------
+	sed -i \
+		"s|with_gallium_panfrost, with_panfrost_vk,|with_gallium_panfrost,|" \
+		meson.build
+
+	echo "=== with_driver_using_cl after sed ==="
+	sed -n '/with_driver_using_cl = \[/,/\].contains(true)/p' meson.build
 }
 
 termux_step_pre_configure() {
