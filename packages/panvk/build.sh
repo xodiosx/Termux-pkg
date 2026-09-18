@@ -51,11 +51,7 @@ termux_step_post_get_source() {
 	rm -rf subprojects
 
 	# ------------------------------------------------------------------
-	# Fix #1 — vtn_bindgen2
-	#
-	# src/compiler/spirv/meson.build:83
-	#   ERROR: Tried to mix a host machine library ("vtn") with a build
-	#   machine target "vtn_bindgen2"
+	# Fix #1 — vtn_bindgen2 (src/compiler/spirv/meson.build:83)
 	#
 	# vtn_bindgen2 is `native : not can_run_host_binaries()` (true in
 	# cross), but its `dependencies : [idep_vtn, …]` pulls in
@@ -73,22 +69,13 @@ termux_step_post_get_source() {
 	sed -n '/prog_vtn_bindgen2 = executable/,/^   )/p' src/compiler/spirv/meson.build
 
 	# ------------------------------------------------------------------
-	# Fix #2 — CLC
+	# Fix #2 — remove with_panfrost_vk from with_driver_using_cl
+	# (meson.build, top level)
 	#
-	# src/compiler/clc/meson.build:126
-	#   ERROR: Tried to mix a host machine library ("libmesaclc") with a
-	#   build machine target "mesa_clc"
-	#
-	# Same pattern, different file. Root cause: the fork put
-	# `with_panfrost_vk` inside `with_driver_using_cl`, so PanVK forces
-	# with_clc=true, which builds src/compiler/clc. CLC is the OpenCL C
-	# compiler — PanVK has nothing to do with it.
-	#
-	# Removing `with_panfrost_vk` from that list makes with_clc=false
-	# for a PanVK-only build, so src/compiler/clc is skipped entirely
-	# and the `mesa_clc` cross-build error never fires.
-	#
-	# Pattern is unique to the `with_driver_using_cl = [...]` list.
+	# The fork wrongly lists PanVK in the "drivers that use CLC" array.
+	# CLC is the OpenCL C compiler; PanVK has nothing to do with it.
+	# Removing that token makes with_clc=false for a PanVK-only build,
+	# so src/compiler/clc is never entered.
 	# ------------------------------------------------------------------
 	sed -i \
 		"s|with_gallium_panfrost, with_panfrost_vk,|with_gallium_panfrost,|" \
@@ -96,6 +83,26 @@ termux_step_post_get_source() {
 
 	echo "=== with_driver_using_cl after sed ==="
 	sed -n '/with_driver_using_cl = \[/,/\].contains(true)/p' meson.build
+
+	# ------------------------------------------------------------------
+	# Fix #3 — guard subdir('cl') in src/poly/meson.build
+	#
+	# With with_clc=false, prog_mesa_clc is never defined. But
+	# src/poly/meson.build enters subdir('cl') unconditionally, and
+	# src/poly/cl/meson.build references prog_mesa_clc at line 14.
+	# Wrapping that subdir in `if with_clc` skips it entirely when CLC
+	# is not being built.
+	# ------------------------------------------------------------------
+	sed -i "s|^subdir('cl')|if with_clc\n  subdir('cl')\nendif|" src/poly/meson.build
+
+	if grep -q "^if with_clc" src/poly/meson.build; then
+		echo "OK: subdir('cl') guarded with with_clc"
+	else
+		echo "WARN: sed for src/poly/meson.build did not match — check manually"
+	fi
+
+	echo "=== src/poly/meson.build after sed ==="
+	cat src/poly/meson.build
 }
 
 termux_step_pre_configure() {
