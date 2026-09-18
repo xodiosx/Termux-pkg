@@ -53,7 +53,7 @@ termux_step_pre_configure() {
 		for p in "$TERMUX_SCRIPTDIR"/packages/mesa/*.patch; do
 			echo "Applying $(basename "${p}")"
 			sed "s|@TERMUX_PREFIX@|${TERMUX_PREFIX}|g" "${p}" \
-				| patch --silent -p1 -d "$srcdir"
+				| patch --silent -p1 -d "$TERMUX_PKG_SRCDIR"
 		done
 
 	termux_setup_cmake
