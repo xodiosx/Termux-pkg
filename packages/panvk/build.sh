@@ -58,9 +58,6 @@ termux_step_post_get_source() {
 		-e "s|dependencies : \[idep_vtn, idep_mesautil, idep_nir\],|dependencies : [],|" \
 		src/compiler/spirv/meson.build
 
-	echo "=== vtn_bindgen2 block after sed ==="
-	sed -n '/prog_vtn_bindgen2 = executable/,/^   )/p' src/compiler/spirv/meson.build
-
 	# ------------------------------------------------------------------
 	# Fix #2 — remove with_panfrost_vk from with_driver_using_cl (meson.build)
 	# ------------------------------------------------------------------
@@ -68,22 +65,12 @@ termux_step_post_get_source() {
 		"s|with_gallium_panfrost, with_panfrost_vk,|with_gallium_panfrost,|" \
 		meson.build
 
-	echo "=== with_driver_using_cl after sed ==="
-	sed -n '/with_driver_using_cl = \[/,/\].contains(true)/p' meson.build
-
 	# ------------------------------------------------------------------
-	# Fix #3 — guard subdir('cl') in src/poly/meson.build
+	# Fix #3 — disable subdir('cl') in src/poly/meson.build
+	# (whitespace-tolerant, comments the line out)
 	# ------------------------------------------------------------------
-	sed -i "s|^subdir('cl')|if with_clc\n  subdir('cl')\nendif|" src/poly/meson.build
-
-	if grep -q "^if with_clc" src/poly/meson.build; then
-		echo "OK: subdir('cl') guarded with with_clc"
-	else
-		echo "WARN: sed for src/poly/meson.build did not match — check manually"
-	fi
-
-	echo "=== src/poly/meson.build after sed ==="
-	cat src/poly/meson.build
+	sed -i "s|^\([[:space:]]*\)subdir('cl')$|\1# Termux: subdir('cl') disabled (no CLC)|" \
+		src/poly/meson.build
 
 	# ------------------------------------------------------------------
 	# Fix #4 — fallback idep_libpoly in src/poly/nir/meson.build
@@ -91,42 +78,47 @@ termux_step_post_get_source() {
 	sed -i "1i if not is_variable('idep_libpoly')\n  idep_libpoly = declare_dependency()\nendif\n" \
 		src/poly/nir/meson.build
 
-	if head -3 src/poly/nir/meson.build | grep -q "is_variable('idep_libpoly')"; then
-		echo "OK: fallback idep_libpoly prepended to src/poly/nir/meson.build"
-	else
-		echo "WARN: sed for src/poly/nir/meson.build did not match — check manually"
-	fi
-
-	echo "=== src/poly/nir/meson.build (top 10 lines) ==="
-	head -10 src/poly/nir/meson.build
-
 	# ------------------------------------------------------------------
-	# Fix #5 — guard subdir('clc') in src/panfrost/meson.build
+	# Fix #5 — disable subdir('clc') in src/panfrost/meson.build
 	#
-	# src/panfrost/clc/meson.build:9
+	# src/panfrost/clc/meson.build:9:26
 	#   ERROR: Tried to mix a host machine library ("panfrost_compiler")
 	#   with a build machine target "panfrost_compile"
 	#
-	# Same pattern one level down: panfrost_compile is a native tool
-	# (build machine) that links panfrost_compiler (host machine). This
-	# subdir only exists to build the Panfrost OpenCL C compiler, which
-	# PanVK does not use.
+	# The subdir is entered unconditionally from src/panfrost/meson.build.
+	# Because it may be indented inside a conditional, the earlier `^`
+	# anchor missed it. This pattern matches with any leading whitespace.
 	#
-	# Guarding subdir('clc') with `if with_clc` skips it entirely when
-	# CLC is off (our case).
+	# PanVK never uses the Panfrost OpenCL C compiler, so disabling the
+	# subdir entirely is safe and permanent for this package.
 	# ------------------------------------------------------------------
 	if [ -f src/panfrost/meson.build ]; then
-		sed -i "s|^subdir('clc')|if with_clc\n  subdir('clc')\nendif|" src/panfrost/meson.build
-
-		if grep -q "^if with_clc" src/panfrost/meson.build; then
-			echo "OK: subdir('clc') guarded with with_clc"
-		else
-			echo "WARN: sed for src/panfrost/meson.build did not match — check manually"
-		fi
-
-		echo "=== src/panfrost/meson.build after sed ==="
+		echo "=== src/panfrost/meson.build BEFORE ==="
 		cat src/panfrost/meson.build
+
+		sed -i "s|^\([[:space:]]*\)subdir('clc')\(.*\)$|\1# Termux: subdir('clc') disabled (no CLC)\2|" \
+			src/panfrost/meson.build
+		# Fallback: also strip any remaining bare subdir('clc') anywhere on a line
+		sed -i "s|subdir('clc')|# Termux: subdir('clc') disabled|" \
+			src/panfrost/meson.build
+
+		echo "=== src/panfrost/meson.build AFTER ==="
+		cat src/panfrost/meson.build
+
+		if grep -q "subdir('clc')" src/panfrost/meson.build; then
+			echo "ERROR: subdir('clc') is still active in src/panfrost/meson.build"
+			exit 1
+		fi
+		echo "OK: src/panfrost/meson.build no longer enters clc"
 	fi
+
+	# ------------------------------------------------------------------
+	# Sanity: print the two most relevant files so the CI log proves the
+	# edits landed.
+	# ------------------------------------------------------------------
+	echo "=== verify: any active subdir('clc') / subdir('cl') left in tree? ==="
+	grep -rn "^[[:space:]]*subdir('clc')" src/ || echo "  (none — good)"
+	grep -rn "^[[:space:]]*subdir('cl')$" src/ || echo "  (none — good)"
 }
 
 termux_step_pre_configure() {
