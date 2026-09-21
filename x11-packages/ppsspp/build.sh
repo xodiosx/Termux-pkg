@@ -113,7 +113,6 @@ termux_step_post_make_install() {
 	# 1. Handle original symlink installation for standalone
 	cd $TERMUX_PREFIX/bin
 	ln -sf PPSSPPSDL "$TERMUX_PREFIX/bin/ppsspp"
-
 	# 2. Inject the pristine saved Android core directly into the packaging layout
 	echo "Injecting clean Libretro core into final package directory..."
 	mkdir -p "$TERMUX_PREFIX/lib/libretro"
