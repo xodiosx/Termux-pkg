@@ -56,6 +56,10 @@ termux_step_pre_configure() {
 		LDFLAGS+=" -L$TERMUX_PKG_BUILDDIR/_lib -l:libandroid-setjmp.a"
 	fi
 
+	# Disable VK_EXT_custom_border_color on Turnip (Qualcomm Adreno) because
+	# it advertises the extension but crashes during vkCreateDevice.
+	sed -i '/r->custom_border_color_extension_enabled =/,/VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);/c\    if ((r->device_props.vendorID == 0x5143) \&\& strstr(r->device_props.deviceName, "Turnip")) {\n        fprintf(stderr, "Disabling VK_EXT_custom_border_color on Turnip\\n");\n        r->custom_border_color_extension_enabled = false;\n    } else {\n        r->custom_border_color_extension_enabled =\n            add_extension_if_available(available_extensions, enabled_extension_names,\n                                       VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);\n    }' hw/xbox/nv2a/pgraph/vk/instance.c
+
 	termux_setup_cmake
 	termux_setup_ninja
 	if [ "$TERMUX_ON_DEVICE_BUILD" = "true" ]; then
