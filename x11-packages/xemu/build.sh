@@ -59,7 +59,9 @@ termux_step_pre_configure() {
 	# Disable VK_EXT_custom_border_color on Turnip (Qualcomm Adreno) because
 	# it advertises the extension but crashes during vkCreateDevice.
 	sed -i '/r->custom_border_color_extension_enabled =/,/VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);/c\    if ((r->device_props.vendorID == 0x5143) \&\& strstr(r->device_props.deviceName, "Turnip")) {\n        fprintf(stderr, "Disabling VK_EXT_custom_border_color on Turnip\\n");\n        r->custom_border_color_extension_enabled = false;\n    } else {\n        r->custom_border_color_extension_enabled =\n            add_extension_if_available(available_extensions, enabled_extension_names,\n                                       VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);\n    }' hw/xbox/nv2a/pgraph/vk/instance.c
-
+	# Disable VK_EXT_provoking_vertex and VK_EXT_memory_budget on Turnip
+	sed -i '/r->provoking_vertex_extension_enabled =/,/VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME);/c\    if ((r->device_props.vendorID == 0x5143) \&\& strstr(r->device_props.deviceName, "Turnip")) {\n        fprintf(stderr, "Disabling VK_EXT_provoking_vertex on Turnip\\n");\n        r->provoking_vertex_extension_enabled = false;\n    } else {\n        r->provoking_vertex_extension_enabled =\n            add_extension_if_available(available_extensions, enabled_extension_names,\n                                       VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME);\n    }' hw/xbox/nv2a/pgraph/vk/instance.c
+	sed -i '/r->memory_budget_extension_enabled = add_extension_if_available(/,/VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);/c\    if ((r->device_props.vendorID == 0x5143) \&\& strstr(r->device_props.deviceName, "Turnip")) {\n        fprintf(stderr, "Disabling VK_EXT_memory_budget on Turnip\\n");\n        r->memory_budget_extension_enabled = false;\n    } else {\n        r->memory_budget_extension_enabled = add_extension_if_available(\n            available_extensions, enabled_extension_names,\n            VK_EXT_MEMORY_BUDGET_EXTENSION_NAME);\n    }' hw/xbox/nv2a/pgraph/vk/instance.c
 	termux_setup_cmake
 	termux_setup_ninja
 	if [ "$TERMUX_ON_DEVICE_BUILD" = "true" ]; then
