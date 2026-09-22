@@ -25,8 +25,7 @@ termux_step_post_get_source() {
 # $HOME/android-sdk and install the components Gradle needs.
 termux_am_prepare_sdk() {
 	if [ -n "${ANDROID_HOME:-}" ] && [ -w "$ANDROID_HOME" ] && \
-	   { [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ] || \
-	     [ -x "$ANDROID_HOME/cmdline-tools/bin/sdkmanager" ]; }; then
+		[ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
 		export ANDROID_HOME
 		return 0
 	fi
