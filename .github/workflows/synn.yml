@@ -8,41 +8,182 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
 jobs:
   sync-upstream:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04 # Or ubuntu-22.04 if you prefer the older image
 
     steps:
+      - name: Verify GH_PUSH_TOKEN is present
+        env:
+          TOKEN: ${{ secrets.GH_PUSH_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "token length = ${#TOKEN}"
+          if [ -z "${TOKEN}" ]; then
+            echo "::error::GH_PUSH_TOKEN is empty or not visible to this repository."
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------
+      # 1. OVERRIDE DNS: Fixes the core "Temporary failure resolving" error
+      #    on Ubuntu 26.04 runners by bypassing systemd-resolved.
+      # ------------------------------------------------------------------
+      - name: Override DNS resolver with public nameservers
+        run: |
+          set -euo pipefail
+          # Remove the symlink and create a static file with reliable DNS servers
+          sudo rm -f /etc/resolv.conf
+          echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+          echo "nameserver 8.8.4.4" | sudo tee -a /etc/resolv.conf
+          echo "options timeout:1 attempts:3" | sudo tee -a /etc/resolv.conf
+          echo "DNS configuration applied."
+
+      # ------------------------------------------------------------------
+      # 2. Bypass the Azure mirror (still a good safety net)
+      # ------------------------------------------------------------------
+      - name: Replace Azure mirror with archive.ubuntu.com
+        run: |
+          set -euo pipefail
+          MIRROR_LIST="/etc/apt/apt-mirrors.xt"
+          if [ -f "$MIRROR_LIST" ] && grep -q "azure.archive.ubuntu.com" "$MIRROR_LIST"; then
+            echo "Replacing azure.archive.ubuntu.com with archive.ubuntu.com"
+            sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' "$MIRROR_LIST"
+          else
+            echo "Azure mirror not found — no change needed."
+          fi
+          #sudo sed -i 's#http://azure.archive.ubuntu.com/ubuntu#http://archive.ubuntu.com/ubuntu#g' /etc/apt/sources.list 2>/dev/null || true
+
+      # ------------------------------------------------------------------
+      # 3. Hardening APT: fast fail-over and retry policy
+      # ------------------------------------------------------------------
+      - name: Configure APT timeouts and disable same-mirror retries
+        run: |
+          set -euo pipefail
+          sudo tee /etc/apt/apt.conf.d/99-ci-timeouts > /dev/null <<'EOF'
+          Acquire::Retries "0";
+          Acquire::http::Timeout "20";
+          Acquire::https::Timeout "20";
+          DPkg::Lock::Timeout "120";
+          EOF
+          echo "APT timeout configuration applied."
+
+      # ------------------------------------------------------------------
+      # 4. Robust apt-get update + install with --fix-missing and retries
+      # ------------------------------------------------------------------
+      - name: Update APT and install git (with retries)
+        run: |
+          set -euo pipefail
+          MAX_ATTEMPTS=3
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo ">>> Attempt $i of $MAX_ATTEMPTS: apt-get update"
+            if sudo apt-get update; then
+              echo ">>> apt-get update succeeded."
+              break
+            fi
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::apt-get update failed after $MAX_ATTEMPTS attempts."
+              exit 1
+            fi
+            echo ">>> apt-get update failed. Retrying in 5 seconds..."
+            sleep 5
+          done
+
+          for i in $(seq 1 $MAX_ATTEMPTS); do
+            echo ">>> Attempt $i of $MAX_ATTEMPTS: apt-get install git ca-certificates"
+            # Added --fix-missing to handle partial downloads
+            if sudo apt-get install -y --fix-missing --reinstall git git-man ca-certificates; then
+              echo ">>> git installation succeeded."
+              git --version
+              which git
+              break
+            fi
+            if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+              echo "::error::apt-get install failed after $MAX_ATTEMPTS attempts."
+              exit 1
+            fi
+            echo ">>> apt-get install failed. Retrying in 5 seconds..."
+            sleep 5
+          done
+
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
+          ref: master
           fetch-depth: 0
-          token: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GH_PUSH_TOKEN }}
 
-      - name: Configure Git
+      - name: Configure git
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          set -euo pipefail
+          git config --local user.email "github-actions@users.noreply.github.com"
+          git config --local user.name  "github-actions"
 
-      - name: Fetch and Merge Upstream
+      - name: Sync with upstream
         run: |
-          git remote add upstream https://github.com/termux/termux-packages.git
+          set -euo pipefail
+
+          git remote add upstream https://github.com/xodiosx/termux-packages.git 2>/dev/null || \
+            git remote set-url upstream https://github.com/xodiosx/termux-packages.git
+
           git fetch upstream master
           git checkout master
 
-          # Attempt merge
-          if ! git merge upstream/master --no-edit -m "Chore: sync with upstream termux-packages"; then
-            echo "Merge conflict detected! Keeping local custom packages..."
-            git checkout --ours .
-            git add .
-            git commit -m "Chore: resolved merge conflicts during upstream sync"
+          KEEP_PATHS=(".github/workflows")
+          mkdir -p /tmp/keep
+          for p in "${KEEP_PATHS[@]}"; do
+            dest="/tmp/keep/${p//\//__}"
+            rm -rf "$dest"
+            if [ -e "$p" ]; then
+              cp -r "$p" "$dest"
+            fi
+          done
+
+          git checkout upstream/master -- .
+
+          for p in "${KEEP_PATHS[@]}"; do
+            src="/tmp/keep/${p//\//__}"
+            if [ -e "$src" ]; then
+              rm -rf "$p"
+              mkdir -p "$(dirname "$p")"
+              cp -r "$src" "$p"
+            fi
+          done
+
+          echo ">>> changes staged for this sync:"
+          git add -A
+          git diff --cached --stat | tail -30 || true
+
+          if git diff --cached --quiet; then
+            echo ">>> No changes — already up to date with upstream."
+          else
+            git commit -m "chore: sync with upstream $(date -u +%Y%m%d-%H%M%S)"
+            echo ">>> committed sync"
           fi
 
-          # If PAT_TOKEN is not set, undo upstream workflow file updates so GITHUB_TOKEN push succeeds
-          if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
-            echo "PAT_TOKEN not detected. Restoring workflow files to bypass GITHUB_TOKEN push restrictions..."
-            git checkout HEAD~1 -- .github/workflows/
-            git commit -m "Chore: preserve local workflow files" || true
-          fi
+      - name: Push
+        run: |
+          set -euo pipefail
 
-          git push origin master
+          git remote set-url origin \
+            "https://x-access-token:${{ secrets.GH_PUSH_TOKEN }}@github.com/${{ github.repository }}"
+
+          pushed=0
+          for i in 1 2 3; do
+            if git push --force origin "HEAD:refs/heads/master"; then
+              echo "✔ pushed on attempt $i"
+              pushed=1
+              break
+            fi
+            echo "push attempt $i failed; retrying in 5s"
+            sleep 5
+          done
+
+          if [ "${pushed}" -ne 1 ]; then
+            echo "::error::push failed after 3 attempts"
+            exit 1
+          fi
+          echo ">>> push succeeded"
